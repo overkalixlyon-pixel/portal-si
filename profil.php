@@ -8,6 +8,15 @@ try {
     $queryKonfig->execute();
     $konfig = $queryKonfig->fetch();
 
+    if (!$konfig) {
+        $konfig = [
+            'visi_prodi' => 'Visi belum diatur.',
+            'misi_prodi' => 'Misi belum diatur.',
+            'sk_akreditasi' => '-',
+            'file_sertifikat_pdf' => '#'
+        ];
+    }
+
     // 3. Query khusus mengambil data Ketua Program Studi (urutan_tampil = 1)
     $queryKaprodi = $koneksi->prepare("SELECT * FROM tabel_dosen WHERE urutan_tampil = 1 LIMIT 1");
     $queryKaprodi->execute();
@@ -17,20 +26,53 @@ try {
     $queryDosen = $koneksi->prepare("SELECT * FROM tabel_dosen WHERE urutan_tampil > 1 ORDER BY id ASC");
     $queryDosen->execute();
     $daftarDosen = $queryDosen->fetchAll();
-
 } catch (PDOException $e) {
     die("Gagal memuat data halaman profil: " . $e->getMessage());
 }
 ?>
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" class="scroll-smooth">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Informasi UDINUS | Profil Prodi</title>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        /* Styling khusus untuk scrollbar elegan di sambutan Kaprodi */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
 
     <script>
         tailwind.config = {
@@ -42,178 +84,187 @@ try {
                         'udinus-light': '#F8F9FA',
                     },
                     fontFamily: {
-                        sans: ['Inter', 'sans-serif'], 
-                    }
+                        sans: ['Inter', 'sans-serif'],
+                    },
                 }
             }
         }
     </script>
 </head>
-<body class="bg-white text-gray-800 font-sans antialiased">
 
-    <header class="bg-white shadow-md sticky top-0 z-50">
+<body class="bg-gray-50 text-gray-800 font-sans antialiased selection:bg-udinus-gold selection:text-white flex flex-col min-h-screen">
+
+    <!-- ================= HEADER & NAVIGASI (GLASSMORPHISM) ================= -->
+    <header class="bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 sticky top-0 z-50 transition-all duration-300">
         <div class="container mx-auto px-6 py-4 flex justify-between items-center">
-            
+
             <a href="index.php" class="flex items-center gap-3 cursor-pointer group">
                 <div class="w-12 h-12 flex items-center justify-center overflow-hidden transition duration-300">
                     <img src="assets/images/logo-udinus.png" alt="Logo UDINUS" class="w-full h-full object-contain group-hover:scale-110 transition duration-300">
                 </div>
                 <div class="flex flex-col">
-                    <span class="text-udinus-navy font-bold text-xl leading-tight">Sistem Informasi</span>
-                    <span class="text-gray-500 font-semibold text-xs tracking-widest uppercase">UDINUS</span>
+                    <span class="text-udinus-navy font-extrabold text-xl leading-tight tracking-tight">Sistem Informasi</span>
+                    <span class="text-gray-500 font-bold text-[10px] tracking-[0.2em] uppercase">UDINUS</span>
                 </div>
             </a>
 
             <nav class="hidden md:flex items-center gap-8 font-semibold text-sm">
                 <a href="index.php" class="text-udinus-navy hover:text-udinus-gold transition duration-300">Beranda</a>
-                <a href="profil.php" class="text-udinus-gold transition duration-300">Profil</a>
+                <a href="profil.php" class="text-udinus-gold relative after:content-[''] after:absolute after:-bottom-1 after:left-0 after:w-full after:h-0.5 after:bg-udinus-gold transition duration-300">Profil</a>
                 <a href="prestasi.php" class="text-udinus-navy hover:text-udinus-gold transition duration-300">Prestasi</a>
                 <a href="alumni.php" class="text-udinus-navy hover:text-udinus-gold transition duration-300">Alumni</a>
             </nav>
 
             <div class="hidden md:block">
-                <a href="login.php" class="bg-udinus-navy hover:bg-udinus-gold text-white font-bold py-2 px-6 rounded transition duration-300 shadow-sm">
-                    Login
+                <a href="login.php" class="bg-udinus-navy hover:bg-blue-900 text-white font-bold py-2.5 px-6 rounded-lg transition duration-300 shadow-md hover:shadow-lg flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                    </svg>
+                    Portal Login
                 </a>
             </div>
 
             <button id="btn-mobile" class="md:hidden flex items-center text-udinus-navy focus:outline-none hover:text-udinus-gold transition">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
             </button>
         </div>
 
-        <div id="menu-mobile" class="hidden md:hidden bg-gray-50 border-t border-gray-200 px-6 py-4 flex-col gap-4 font-semibold shadow-inner">
+        <div id="menu-mobile" class="hidden md:hidden bg-white border-t border-gray-100 px-6 py-4 flex-col gap-4 font-semibold shadow-lg absolute w-full">
             <a href="index.php" class="block text-udinus-navy hover:text-udinus-gold">Beranda</a>
             <a href="profil.php" class="block text-udinus-gold">Profil</a>
             <a href="prestasi.php" class="block text-udinus-navy hover:text-udinus-gold">Prestasi</a>
             <a href="alumni.php" class="block text-udinus-navy hover:text-udinus-gold">Alumni</a>
-            <a href="login.php" class="block bg-udinus-navy hover:bg-blue-900 text-white text-center py-2 rounded mt-2 shadow-md">Login Portal</a>
+            <div class="border-t border-gray-100 pt-2">
+                <a href="login.php" class="flex items-center justify-center gap-2 bg-udinus-navy hover:bg-blue-900 text-white py-2.5 rounded-lg mt-2 shadow-md">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                    </svg>
+                    Masuk ke Portal
+                </a>
+            </div>
         </div>
     </header>
-    <section class="bg-udinus-navy py-12 border-b-4 border-udinus-gold">
-        <div class="container mx-auto px-6 text-center">
-            <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">Profil Program Studi</h1>
-            <p class="text-udinus-gold text-lg">Mengenal Lebih Dekat Sistem Informasi UDINUS</p>
+
+    <!-- ================= HERO BANNER PROFIL ================= -->
+    <section class="relative bg-udinus-navy pt-24 pb-20 md:pt-32 md:pb-28 overflow-hidden border-b-[6px] border-udinus-gold">
+        <div class="absolute inset-0 z-0 opacity-[0.05]" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 24px 24px;"></div>
+        <div class="absolute top-0 right-0 w-96 h-96 bg-udinus-gold rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-pulse -translate-y-1/2 translate-x-1/3"></div>
+        <div class="absolute bottom-0 left-0 w-64 h-64 bg-blue-400 rounded-full mix-blend-screen filter blur-3xl opacity-10 translate-y-1/2 -translate-x-1/3"></div>
+
+        <div class="container mx-auto px-6 text-center relative z-10">
+            <span class="inline-block py-1.5 px-4 rounded-full bg-white/10 border border-white/20 text-udinus-gold font-bold text-xs tracking-widest uppercase mb-5 backdrop-blur-sm shadow-sm">
+                Tentang Kami
+            </span>
+            <h1 class="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-4 tracking-tight">
+                Profil Program Studi
+            </h1>
+            <p class="text-blue-100 text-lg md:text-xl max-w-2xl mx-auto font-medium leading-relaxed">
+                Mengenal lebih dekat arah gerak, fondasi akademik, dan dedikasi Sistem Informasi UDINUS.
+            </p>
         </div>
     </section>
-    <section class="py-16 bg-white">
+
+    <!-- ================= VISI & MISI SECTION ================= -->
+    <section class="py-20 bg-white">
         <div class="container mx-auto px-6 max-w-4xl">
-            
-            <div class="flex flex-wrap justify-center border-b-2 border-gray-200 mb-10">
-                <button onclick="bukaTab(event, 'tab-visi')" class="tab-btn px-8 py-4 text-lg font-bold border-b-4 border-udinus-gold text-udinus-navy transition duration-300" id="btn-default">VISI</button>
-                <button onclick="bukaTab(event, 'tab-misi')" class="tab-btn px-8 py-4 text-lg font-bold border-b-4 border-transparent text-gray-500 hover:text-udinus-gold transition duration-300">MISI</button>
-                <button onclick="bukaTab(event, 'tab-tujuan')" class="tab-btn px-8 py-4 text-lg font-bold border-b-4 border-transparent text-gray-500 hover:text-udinus-gold transition duration-300">TUJUAN</button>
+
+            <!-- Pengaturan Tab Hanya Tinggal Visi & Misi -->
+            <div class="flex flex-wrap justify-center border-b-2 border-gray-100 mb-12 gap-2 md:gap-8">
+                <button onclick="bukaTab(event, 'tab-visi')" class="tab-btn px-6 py-4 text-base md:text-lg font-bold border-b-4 border-udinus-gold text-udinus-navy transition duration-300" id="btn-default">VISI PRODI</button>
+                <button onclick="bukaTab(event, 'tab-misi')" class="tab-btn px-6 py-4 text-base md:text-lg font-bold border-b-4 border-transparent text-gray-400 hover:text-udinus-navy transition duration-300">MISI PRODI</button>
             </div>
 
-            <div id="tab-visi" class="tab-konten block text-center">
-                <p class="text-2xl md:text-3xl italic text-gray-700 leading-relaxed font-light">
+            <!-- Konten Visi -->
+            <div id="tab-visi" class="tab-konten block text-center animate-[fadeIn_0.5s_ease-in-out]">
+                <div class="w-16 h-16 bg-blue-50 text-udinus-navy rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-blue-100">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                </div>
+                <p class="text-2xl md:text-4xl italic text-gray-800 font-semibold leading-relaxed max-w-4xl mx-auto">
                     "<?php echo htmlspecialchars($konfig['visi_prodi']); ?>"
                 </p>
             </div>
 
-            <div id="tab-misi" class="tab-konten hidden">
-                <div class="text-gray-700 text-lg space-y-4">
-                    <?php echo $konfig['misi_prodi']; ?>
+            <!-- Konten Misi -->
+            <div id="tab-misi" class="tab-konten hidden animate-[fadeIn_0.5s_ease-in-out]">
+                <div class="bg-gray-50 rounded-3xl p-8 md:p-12 border border-gray-100 shadow-sm">
+                    <h3 class="text-2xl font-bold text-udinus-navy mb-6 flex items-center gap-3">
+                        <svg class="w-6 h-6 text-udinus-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Misi Program Studi
+                    </h3>
+                    <div class="text-gray-700 text-lg leading-relaxed font-medium text-justify">
+                        <!-- Teks misi dari DB sudah memakai <br> sehingga akan tercetak dengan rapi -->
+                        <?php echo $konfig['misi_prodi']; ?>
+                    </div>
                 </div>
-            </div>
-
-            <div id="tab-tujuan" class="tab-konten hidden">
-                <ul class="space-y-4 text-gray-700 text-lg">
-                    <li class="flex items-start gap-3">
-                        <span class="text-white bg-udinus-gold font-bold w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-sm mt-1">✓</span>
-                        <span>Menghasilkan lulusan yang kompeten sebagai Analis Sistem, IT Auditor, dan Technopreneur.</span>
-                    </li>
-                    <li class="flex items-start gap-3">
-                        <span class="text-white bg-udinus-gold font-bold w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-sm mt-1">✓</span>
-                        <span>Mengembangkan products inovasi teknologi yang memberikan solusi nyata bagi dunia bisnis dan masyarakat.</span>
-                    </li>
-                </ul>
             </div>
 
         </div>
     </section>
-    <section class="py-16 bg-white">
-        <div class="container mx-auto px-6">
-            
-            <div class="bg-udinus-navy rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row items-center border border-gray-200">
-                
-                <div class="w-full md:w-1/2 p-12 flex flex-col justify-center items-center relative">
-                    <div class="absolute w-64 h-64 bg-udinus-gold rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-pulse"></div>
-                    <div class="relative z-10 text-center">
-                        <div class="w-40 h-40 mx-auto bg-gradient-to-br from-yellow-300 to-udinus-gold rounded-full shadow-lg flex items-center justify-center border-4 border-white mb-6">
-                            <svg class="w-20 h-20 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
-                        </div>
-                        <h4 class="text-udinus-gold font-bold tracking-widest uppercase text-xl">LAM INFOKOM</h4>
-                    </div>
-                </div>
 
-                <div class="w-full md:w-1/2 p-12 md:pl-0 text-left relative z-10">
-                    <span class="inline-block py-1 px-4 rounded-full bg-yellow-500/20 text-udinus-gold font-bold text-xs tracking-widest uppercase mb-4">
-                        Pencapaian Kami
-                    </span>
-                    <h2 class="text-3xl md:text-5xl font-extrabold text-white leading-tight mb-4">
-                        Terakreditasi <span class="text-udinus-gold">UNGGUL</span>
-                    </h2>
-                    <div class="mb-6 inline-block bg-white/10 border border-udinus-gold rounded px-3 py-1">
-                        <p class="text-udinus-gold font-mono text-sm tracking-wider">SK: <?php echo htmlspecialchars($konfig['sk_akreditasi']); ?></p>
-                    </div>
-                    <p class="text-gray-300 text-lg mb-8 leading-relaxed max-w-lg">
-                        Program Studi Sistem Informasi telah memenuhi standar kualitas pendidikan tinggi nasional dengan nilai maksimal. Kami menjamin kurikulum, fasilitas, dan kualitas pengajaran berada di level terbaik untuk mencetak lulusan berdaya saing global.
-                    </p>
-                    <a href="assets/<?php echo htmlspecialchars($konfig['file_sertifikat_pdf']); ?>" target="_blank" class="inline-flex items-center gap-3 border-2 border-udinus-gold text-udinus-gold hover:bg-udinus-gold hover:text-udinus-navy font-bold py-3 px-8 rounded-lg transition duration-300 group shadow-md">
-                        Lihat Dokumen Sertifikat
-                        <svg class="w-5 h-5 group-hover:translate-x-1 transition duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                    </a>
-                </div>
-
-            </div>
-        </div>
-    </section>
-    <section class="py-16 bg-gray-50">
+    <!-- ================= DOSEN & PIMPINAN SECTION ================= -->
+    <section class="py-24 bg-gray-50 border-t border-gray-100">
         <div class="container mx-auto px-6">
-            
+
             <div class="text-center mb-16">
                 <span class="inline-block py-1 px-4 rounded-full bg-blue-100 text-udinus-navy font-bold text-xs tracking-widest uppercase mb-4">
-                    Pimpinan & Pengajar
+                    Pimpinan & Staf Pengajar
                 </span>
-                <h2 class="text-3xl md:text-4xl font-bold text-udinus-navy mb-4">Jajaran Akademik</h2>
-                <p class="text-gray-600 max-w-2xl mx-auto text-lg">Dibimbing langsung oleh para pakar, peneliti, dan praktisi industri yang berdedikasi tinggi untuk mencetak talenta digital terbaik.</p>
+                <h2 class="text-3xl md:text-4xl font-extrabold text-udinus-navy mb-4 tracking-tight">Jajaran Akademik</h2>
+                <p class="text-gray-600 max-w-2xl mx-auto text-lg">Dibimbing langsung oleh para pakar, peneliti, dan praktisi industri yang berdedikasi tinggi mencetak talenta digital.</p>
             </div>
 
             <?php if ($kaprodi): ?>
-            <div class="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden mb-16 max-w-6xl mx-auto flex flex-col lg:flex-row">
-                <div class="w-full lg:w-2/5 h-80 lg:h-auto bg-gray-200 relative">
-                    <img src="assets/images/<?php echo htmlspecialchars($kaprodi['foto_dosen']); ?>" alt="<?php echo htmlspecialchars($kaprodi['nama_dosen']); ?>" class="w-full h-full object-cover object-top">
-                    <div class="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-udinus-navy to-transparent opacity-60"></div>
-                </div>
-                <div class="w-full lg:w-3/5 p-8 lg:p-12 flex flex-col justify-center bg-white relative">
-                    <svg class="absolute top-8 right-8 w-16 h-16 text-gray-100 -z-10" fill="currentColor" viewBox="0 0 24 24"><path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/></svg>
-                    
-                    <h3 class="text-2xl md:text-3xl font-extrabold text-udinus-navy mb-1"><?php echo htmlspecialchars($kaprodi['nama_dosen']); ?></h3>
-                    <p class="text-udinus-gold font-bold text-sm tracking-wider uppercase mb-6 pb-4 border-b-2 border-gray-100"><?php echo htmlspecialchars($kaprodi['jabatan_akademik']); ?></p>
-                    
-                    <div class="text-gray-600 text-sm md:text-base leading-relaxed space-y-4 text-justify h-64 overflow-y-auto pr-4 custom-scrollbar">
-                        <?php echo nl2br(htmlspecialchars($kaprodi['sambutan_teks'])); ?>
+                <div class="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden mb-16 max-w-5xl mx-auto flex flex-col md:flex-row group hover:shadow-2xl transition duration-500">
+                    <div class="w-full md:w-2/5 h-96 md:h-auto relative overflow-hidden bg-gray-200">
+                        <!-- Foto Pak Amiq dari Database -->
+                        <img src="assets/images/<?php echo htmlspecialchars($kaprodi['foto_dosen']); ?>" alt="<?php echo htmlspecialchars($kaprodi['nama_dosen']); ?>" class="w-full h-full object-cover object-top group-hover:scale-105 transition duration-700">
+                        <div class="absolute inset-0 bg-gradient-to-t from-udinus-navy/80 via-transparent to-transparent opacity-80"></div>
+                        <div class="absolute bottom-6 left-6 right-6">
+                            <h3 class="text-2xl font-extrabold text-white shadow-sm mb-1"><?php echo htmlspecialchars($kaprodi['nama_dosen']); ?></h3>
+                            <span class="bg-udinus-gold text-white text-xs font-bold px-3 py-1 rounded-full shadow-md inline-block"><?php echo htmlspecialchars($kaprodi['jabatan_akademik']); ?></span>
+                        </div>
+                    </div>
+                    <div class="w-full md:w-3/5 p-8 md:p-12 flex flex-col justify-center bg-white relative">
+                        <svg class="absolute top-8 right-8 w-16 h-16 text-gray-50 -z-10" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
+                        </svg>
+
+                        <!-- Kotak Sambutan dengan Custom Scrollbar agar rapi -->
+                        <div class="text-gray-600 text-base leading-relaxed space-y-4 text-justify relative z-10 font-medium h-[22rem] md:h-[26rem] overflow-y-auto pr-4 custom-scrollbar">
+                            <?php echo nl2br(htmlspecialchars($kaprodi['sambutan_teks'])); ?>
+                        </div>
                     </div>
                 </div>
-            </div>
             <?php endif; ?>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <!-- Daftar Dosen Lainnya (Grid 5 Kolom/Bebas Menyesuaikan) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 max-w-6xl mx-auto">
                 <?php if (empty($daftarDosen)): ?>
-                    <div class="col-span-1 md:col-span-4 text-center py-8 text-gray-400">
-                        Belum ada data staf pengajar reguler di database.
+                    <div class="col-span-full text-center py-8 text-gray-400 font-semibold">
+                        Belum ada data staf pengajar reguler.
                     </div>
                 <?php else: ?>
                     <?php foreach ($daftarDosen as $dosen): ?>
-                        <div class="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition duration-300 hover:-translate-y-2 group flex flex-col">
-                            <div class="w-full h-64 overflow-hidden bg-gray-200">
-                                <img src="assets/images/<?php echo htmlspecialchars($dosen['foto_dosen']); ?>" alt="Foto Dosen" class="w-full h-full object-cover object-center group-hover:scale-105 transition duration-500">
+                        <div class="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition duration-500 hover:-translate-y-2 group flex flex-col border border-gray-100">
+                            <div class="w-full h-56 overflow-hidden bg-gray-200 relative">
+                                <img src="assets/images/<?php echo htmlspecialchars($dosen['foto_dosen']); ?>" alt="Foto Dosen" class="w-full h-full object-cover object-top group-hover:scale-110 transition duration-700">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition duration-300"></div>
                             </div>
-                            <div class="p-6 text-center border-t-4 border-udinus-navy flex flex-col flex-grow">
-                                <h3 class="text-xl font-bold text-udinus-navy mb-1"><?php echo htmlspecialchars($dosen['nama_dosen']); ?></h3>
-                                <p class="text-udinus-gold font-semibold text-sm mb-3"><?php echo htmlspecialchars($dosen['jabatan_akademik']); ?></p>
-                                <p class="text-gray-500 text-sm mb-4 flex-grow">Kepakaran: <?php echo htmlspecialchars($dosen['kepakaran']); ?></p>
+                            <div class="p-5 text-center flex flex-col flex-grow relative bg-white">
+                                <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-udinus-gold rounded-full"></div>
+                                <h3 class="text-sm font-bold text-gray-900 mb-1 leading-tight line-clamp-2"><?php echo htmlspecialchars($dosen['nama_dosen']); ?></h3>
+                                <p class="text-udinus-navy font-bold text-[10px] uppercase tracking-wider mb-3"><?php echo htmlspecialchars($dosen['jabatan_akademik']); ?></p>
+                                <div class="w-full border-t border-gray-100 pt-3 mt-auto">
+                                    <p class="text-gray-400 text-xs font-medium mb-1">Spesialisasi:</p>
+                                    <p class="text-gray-700 text-xs font-bold leading-tight" title="<?php echo htmlspecialchars($dosen['kepakaran']); ?>"><?php echo htmlspecialchars($dosen['kepakaran']); ?></p>
+                                </div>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -222,42 +273,65 @@ try {
 
         </div>
     </section>
-    <footer class="bg-udinus-navy text-white pt-16 pb-8 border-t-4 border-udinus-gold mt-auto">
+
+    <!-- ================= FOOTER SECTION (KONSISTEN) ================= -->
+    <footer class="bg-gray-900 text-white pt-20 pb-8 border-t-[6px] border-udinus-gold mt-auto">
         <div class="container mx-auto px-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
-                <div>
-                    <h3 class="text-2xl font-bold text-udinus-gold mb-4">Sistem Informasi</h3>
-                    <p class="text-gray-300 leading-relaxed mb-4">
-                        Universitas Dian Nuswantoro <br>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16">
+
+                <div class="col-span-1 md:col-span-1">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-12 h-12 bg-white rounded flex items-center justify-center p-1">
+                            <img src="assets/images/logo-udinus.png" alt="Logo" class="w-full h-full object-contain">
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-udinus-gold leading-tight">Sistem Informasi</h3>
+                            <p class="text-xs text-gray-400 font-bold tracking-widest">UDINUS SEMARANG</p>
+                        </div>
+                    </div>
+                    <p class="text-gray-400 leading-relaxed font-medium">
                         Membentuk inovator digital masa depan yang berdaya saing global di bidang teknologi, analisis data, dan strategi bisnis.
                     </p>
                 </div>
+
                 <div>
-                    <h4 class="text-lg font-bold mb-4 tracking-wider uppercase text-gray-100">Tautan Cepat</h4>
-                    <ul class="space-y-3 text-gray-300">
-                        <li><a href="profil.php" class="hover:text-udinus-gold transition duration-300">&rarr; Profil Prodi</a></li>
-                        <li><a href="prestasi.php" class="hover:text-udinus-gold transition duration-300">&rarr; Prestasi Mahasiswa</a></li>
-                        <li><a href="alumni.php" class="hover:text-udinus-gold transition duration-300">&rarr; Jaringan Alumni</a></li>
-                        <li><a href="login.php" class="hover:text-udinus-gold transition duration-300">&rarr; Portal Evaluasi</a></li>
+                    <h4 class="text-sm font-bold mb-6 tracking-wider uppercase text-gray-100">Tautan Pintas</h4>
+                    <ul class="space-y-4 text-gray-400 font-medium">
+                        <li><a href="profil.php" class="hover:text-udinus-gold hover:translate-x-1 inline-block transition duration-300">Profil Program Studi</a></li>
+                        <li><a href="prestasi.php" class="hover:text-udinus-gold hover:translate-x-1 inline-block transition duration-300">Prestasi Mahasiswa</a></li>
+                        <li><a href="alumni.php" class="hover:text-udinus-gold hover:translate-x-1 inline-block transition duration-300">Direktori Alumni</a></li>
+                        <li><a href="login.php" class="hover:text-udinus-gold hover:translate-x-1 inline-block transition duration-300">Portal Evaluasi (Login)</a></li>
                     </ul>
                 </div>
+
                 <div>
-                    <h4 class="text-lg font-bold mb-4 tracking-wider uppercase text-gray-100">Hubungi Kami</h4>
-                    <ul class="space-y-3 text-gray-300">
+                    <h4 class="text-sm font-bold mb-6 tracking-wider uppercase text-gray-100">Hubungi Kami</h4>
+                    <ul class="space-y-4 text-gray-400 font-medium">
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-udinus-gold mt-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                            <span>Gedung H, Lantai 2<br>Jl. Imam Bonjol No.207, Semarang</span>
+                        </li>
                         <li class="flex items-center gap-3">
-                            <svg class="w-5 h-5 text-udinus-gold flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                            <svg class="w-5 h-5 text-udinus-gold flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                            </svg>
                             <span>sekretariat@si.dinus.ac.id</span>
                         </li>
                     </ul>
                 </div>
             </div>
-            <div class="border-t border-gray-700 pt-8 text-center text-sm text-gray-400">
-                <p>&copy; 2026 Program Studi Sistem Informasi UDINUS. Hak Cipta Dilindungi.</p>
+
+            <div class="border-t border-gray-800 pt-8 text-center md:flex md:justify-between md:items-center">
+                <p class="text-sm text-gray-500 font-medium mb-4 md:mb-0">&copy; 2026 Program Studi Sistem Informasi UDINUS. All rights reserved.</p>
             </div>
         </div>
     </footer>
+
     <script>
-        // Logika Sistem Tab Visi Misi
+        // Logika Tab Visi Misi yang disederhanakan
         function bukaTab(evt, namaTab) {
             let i, tabKonten, tabBtn;
             tabKonten = document.getElementsByClassName("tab-konten");
@@ -268,18 +342,18 @@ try {
             tabBtn = document.getElementsByClassName("tab-btn");
             for (i = 0; i < tabBtn.length; i++) {
                 tabBtn[i].classList.remove("border-udinus-gold", "text-udinus-navy");
-                tabBtn[i].classList.add("border-transparent", "text-gray-500");
+                tabBtn[i].classList.add("border-transparent", "text-gray-400");
             }
             document.getElementById(namaTab).classList.remove("hidden");
             document.getElementById(namaTab).classList.add("block");
-            evt.currentTarget.classList.remove("border-transparent", "text-gray-500");
+            evt.currentTarget.classList.remove("border-transparent", "text-gray-400");
             evt.currentTarget.classList.add("border-udinus-gold", "text-udinus-navy");
         }
 
-        // Logika Hamburger Menu Mobile
+        // Hamburger Menu Logic
         const btnMobile = document.getElementById('btn-mobile');
         const menuMobile = document.getElementById('menu-mobile');
-        if(btnMobile && menuMobile) {
+        if (btnMobile && menuMobile) {
             btnMobile.addEventListener('click', () => {
                 menuMobile.classList.toggle('hidden');
                 menuMobile.classList.toggle('flex');
@@ -287,4 +361,5 @@ try {
         }
     </script>
 </body>
+
 </html>

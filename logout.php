@@ -9,4 +9,3 @@ session_destroy();
 // 3. Melempar pengunjung kembali ke halaman login
 header("Location: login.php");
 exit();
-?>
