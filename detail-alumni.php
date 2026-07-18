@@ -50,7 +50,7 @@ try {
         $perusahaanAktif = (!empty($alumni['perusahaan_sekarang']) && $alumni['perusahaan_sekarang'] !== '-') ? htmlspecialchars($alumni['perusahaan_sekarang']) : 'Lulusan SI UDINUS';
         $ringkasanAktif = !empty($alumni['ringkasan_profesional']) ? nl2br(htmlspecialchars($alumni['ringkasan_profesional'])) : '<span class="italic text-gray-400">Alumni belum memperbarui deskripsi ringkasan profesionalnya.</span>';
 
-        // MENGAMBIL DATA ARRAY DINAMIS (JSON & CSV) DARI DATABASE
+        // MENGAMBIL DATA ARRAY DINAMIS DARI DATABASE
 
         // A. Matriks Keahlian (Skills)
         $keahlianDb = !empty($alumni['keahlian']) ? explode(',', $alumni['keahlian']) : [];
@@ -60,26 +60,36 @@ try {
                 if (trim($skill) !== '') $array_skills[] = htmlspecialchars(trim($skill));
             }
         } else {
-            // Default jika belum diisi
             $array_skills = ["Sistem Informasi", "Problem Solving"];
             if ($jabatanAktif !== 'Alumni Terdaftar') $array_skills[] = $jabatanAktif;
         }
 
-        // B. Riwayat Karir / Pengalaman
-        $karirDb = json_decode($alumni['riwayat_karir'] ?? '[]', true) ?: [];
+        // B. Riwayat Karir / Pengalaman (Adaptif: Bisa membaca JSON atau Teks Biasa)
+        $karirRaw = trim($alumni['riwayat_karir'] ?? '');
         $array_pengalaman = [];
-        if (!empty($karirDb)) {
-            foreach ($karirDb as $karir) {
-                $durasi = htmlspecialchars($karir['mulai']) . " - " . (!empty($karir['selesai']) ? htmlspecialchars($karir['selesai']) : "Sekarang");
+        $karirJson = json_decode($karirRaw, true);
+
+        if (is_array($karirJson) && !empty($karirJson)) {
+            // Jika formatnya JSON array
+            foreach ($karirJson as $karir) {
+                $durasi = htmlspecialchars($karir['mulai'] ?? '') . " - " . (!empty($karir['selesai']) ? htmlspecialchars($karir['selesai']) : "Sekarang");
                 $array_pengalaman[] = [
-                    'title' => htmlspecialchars($karir['posisi']),
-                    'company' => htmlspecialchars($karir['perusahaan']),
-                    'duration' => $durasi,
+                    'title' => htmlspecialchars($karir['posisi'] ?? 'Posisi'),
+                    'company' => htmlspecialchars($karir['perusahaan'] ?? ''),
+                    'duration' => trim($durasi, " -"),
                     'desc' => !empty($karir['deskripsi']) ? htmlspecialchars($karir['deskripsi']) : '-'
                 ];
             }
+        } elseif (!empty($karirRaw)) {
+            // Jika formatnya teks biasa dari database
+            $array_pengalaman[] = [
+                'title' => $jabatanAktif,
+                'company' => $perusahaanAktif,
+                'duration' => 'Riwayat Terakhir',
+                'desc' => htmlspecialchars($karirRaw)
+            ];
         } else {
-            // Placeholder default jika kosong
+            // Default jika kosong sama sekali
             $array_pengalaman[] = [
                 'title' => $jabatanAktif,
                 'company' => $perusahaanAktif,
@@ -88,19 +98,39 @@ try {
             ];
         }
 
-        // C. Sertifikat Kompetensi
-        $sertifDb = json_decode($alumni['sertifikat'] ?? '[]', true) ?: [];
+        // C. Sertifikat Kompetensi (Adaptif: Bisa membaca JSON atau Teks Biasa + URL Support)
+        $sertifRaw = trim($alumni['sertifikat'] ?? '');
         $array_sertifikasi = [];
-        $colors = ['text-blue-600', 'text-udinus-gold', 'text-green-600', 'text-purple-600', 'text-red-600']; // Variasi warna logo
-        if (!empty($sertifDb)) {
-            foreach ($sertifDb as $index => $sertif) {
-                $inisial_penerbit = strtoupper(substr(trim($sertif['penerbit']), 0, 2));
+        $colors = ['text-blue-600', 'text-udinus-gold', 'text-green-600', 'text-purple-600', 'text-red-600'];
+        $sertifJson = json_decode($sertifRaw, true);
+
+        if (is_array($sertifJson) && !empty($sertifJson)) {
+            // Jika formatnya JSON array
+            foreach ($sertifJson as $index => $sertif) {
+                $inisial_penerbit = strtoupper(substr(trim($sertif['penerbit'] ?? 'SI'), 0, 2));
                 $array_sertifikasi[] = [
-                    'name' => htmlspecialchars($sertif['nama']),
-                    'issuer' => htmlspecialchars($sertif['penerbit']),
-                    'tahun' => htmlspecialchars($sertif['tahun']),
+                    'name' => htmlspecialchars($sertif['nama'] ?? 'Sertifikat'),
+                    'issuer' => htmlspecialchars($sertif['penerbit'] ?? '-'),
+                    'tahun' => htmlspecialchars($sertif['tahun'] ?? '-'),
                     'logo' => $inisial_penerbit ?: 'SI',
-                    'color' => $colors[$index % count($colors)]
+                    'color' => $colors[$index % count($colors)],
+                    'url' => htmlspecialchars($sertif['url'] ?? '') // Support URL Kredensial
+                ];
+            }
+        } elseif (!empty($sertifRaw)) {
+            // Jika formatnya teks biasa dari SQL
+            $sertifList = explode(',', $sertifRaw);
+            foreach ($sertifList as $index => $s) {
+                $s = trim($s);
+                if ($s === '') continue;
+                $inisial = strtoupper(substr($s, 0, 2)) ?: 'SI';
+                $array_sertifikasi[] = [
+                    'name' => htmlspecialchars($s),
+                    'issuer' => 'Lembaga / Institusi',
+                    'tahun' => 'Tersertifikasi',
+                    'logo' => $inisial,
+                    'color' => $colors[$index % count($colors)],
+                    'url' => ''
                 ];
             }
         }
@@ -124,7 +154,7 @@ try {
         ];
     }
 
-    // Mengubah susunan Array PHP menjadi String JSON murni
+    // Mengubah susunan Array PHP menjadi String JSON murni untuk JS
     $json_data_alumni = json_encode($array_js_alumni);
 } catch (PDOException $e) {
     die("Terjadi kesalahan sistem saat memuat data profil: " . $e->getMessage());
@@ -306,7 +336,7 @@ try {
                         <div id="alumni-experiences" class="relative border-l-2 border-gray-100 ml-4 space-y-10"></div>
                     </div>
 
-                    <!-- LISENSI & SERTIFIKAT -->
+                    <!-- LISENSI & SERTIFIKAT (MENDUKUNG URL INTERAKTIF) -->
                     <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-8 md:p-10">
                         <h2 class="text-lg font-extrabold text-udinus-navy mb-8 flex items-center gap-3">
                             <span class="bg-blue-600 text-white p-2.5 rounded-xl shadow-md">
@@ -345,7 +375,7 @@ try {
             document.getElementById('alumni-address').innerText = profile.address;
             document.getElementById('alumni-about').innerHTML = profile.about;
 
-            // Render Tombol LinkedIn (Sembunyikan jika kosong atau '#')
+            // Render Tombol LinkedIn
             const linkedinContainer = document.getElementById('linkedin-container');
             if (profile.linkedin && profile.linkedin !== '#' && profile.linkedin !== '') {
                 linkedinContainer.innerHTML = `
@@ -389,20 +419,25 @@ try {
             }
             document.getElementById('alumni-experiences').innerHTML = expHTML;
 
-            // Render Sertifikat Kompetensi
+            // Render Sertifikat Kompetensi (Mendukung URL Interaktif)
             let certHTML = '';
             if (profile.certificates.length > 0) {
                 profile.certificates.forEach(cert => {
+                    const TagWrapper = cert.url ? 'a' : 'div';
+                    const HrefAttr = cert.url ? `href="${cert.url}" target="_blank"` : '';
+                    const HoverClass = cert.url ? 'hover:bg-white hover:border-blue-200 hover:shadow-xl hover:shadow-blue-900/5 cursor-pointer' : 'hover:bg-white hover:shadow-md';
+
                     certHTML += `
-                    <div class="flex items-center gap-4 p-5 border border-gray-100 rounded-2xl bg-gray-50/50 hover:bg-white hover:border-blue-100 hover:shadow-xl transition-all duration-300 group shadow-sm">
-                        <div class="w-14 h-14 bg-white rounded-xl flex items-center justify-center shadow-md flex-shrink-0 group-hover:-translate-y-1 border border-gray-100 transition duration-300">
-                            <span class="font-extrabold ${cert.color} text-sm tracking-wider uppercase">${cert.logo}</span>
+                    <${TagWrapper} ${HrefAttr} class="flex items-center gap-4 p-5 border border-gray-100 rounded-2xl bg-gray-50/50 transition-all duration-300 group shadow-sm ${HoverClass}">
+                        <div class="w-14 h-14 bg-white rounded-xl flex items-center justify-center shadow-md flex-shrink-0 group-hover:-translate-y-1 border border-gray-100 transition duration-300 relative overflow-hidden">
+                            <span class="font-extrabold ${cert.color} text-sm tracking-wider uppercase relative z-10">${cert.logo}</span>
                         </div>
-                        <div>
-                            <h4 class="font-extrabold text-gray-900 leading-tight text-sm md:text-[15px] mb-1.5 line-clamp-2">${cert.name}</h4>
+                        <div class="flex-1">
+                            <h4 class="font-extrabold text-gray-900 leading-tight text-sm md:text-[15px] mb-1.5 line-clamp-2 ${cert.url ? 'group-hover:text-blue-600 transition-colors' : ''}">${cert.name}</h4>
                             <p class="text-[10px] text-gray-500 font-bold tracking-wider uppercase">${cert.issuer} &bull; ${cert.tahun}</p>
                         </div>
-                    </div>`;
+                        ${cert.url ? `<svg class="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>` : ''}
+                    </${TagWrapper}>`;
                 });
             } else {
                 certHTML = '<div class="col-span-full py-4 text-sm text-gray-400 italic">Belum ada sertifikasi yang dilampirkan.</div>';
@@ -415,7 +450,6 @@ try {
             if (dataAlumni.length === 0) return;
             currentIndex = currentIndex + direction;
 
-            // Loop array data
             if (currentIndex < 0) {
                 currentIndex = dataAlumni.length - 1;
             } else if (currentIndex >= dataAlumni.length) {
@@ -443,7 +477,7 @@ try {
             }, 250);
         }
 
-        // 4. Sinkronisasi Tangkap Parameter URL matching Database Primary Key ID
+        // 4. Sinkronisasi Tangkap Parameter URL
         document.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             const requestedId = urlParams.get('id');

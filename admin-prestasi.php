@@ -174,6 +174,64 @@ try {
     // =========================================================================
     $queryTampil = $koneksi->query("SELECT * FROM tabel_prestasi ORDER BY tahun DESC, id DESC");
     $daftarPrestasi = $queryTampil->fetchAll();
+
+    // =========================================================================
+    // LOGIKA UNDUH DATA (CSV / EXCEL)
+    // =========================================================================
+    if (isset($_GET['unduh'])) {
+        $jenis_unduh = $_GET['unduh'];
+        $nama_file = "Data_Prestasi_UDINUS_" . date('Ymd');
+
+        if ($jenis_unduh === 'csv') {
+            header('Content-Type: text/csv; charset=utf-8');
+            header('Content-Disposition: attachment; filename=' . $nama_file . '.csv');
+
+            $output = fopen('php://output', 'w');
+            // Menulis header kolom
+            fputcsv($output, ['No', 'Judul Prestasi', 'Kategori', 'Jenis', 'Tahun', 'Deskripsi']);
+
+            $no = 1;
+            foreach ($daftarPrestasi as $row) {
+                fputcsv($output, [
+                    $no++,
+                    $row['judul_prestasi'],
+                    $row['kategori'],
+                    $row['jenis_prestasi'],
+                    $row['tahun'],
+                    $row['deskripsi']
+                ]);
+            }
+            fclose($output);
+            exit();
+        } elseif ($jenis_unduh === 'excel') {
+            header("Content-type: application/vnd-ms-excel");
+            header("Content-Disposition: attachment; filename=" . $nama_file . ".xls");
+
+            echo "<table border='1'>";
+            echo "<tr>
+                    <th>No</th>
+                    <th>Judul Prestasi</th>
+                    <th>Kategori</th>
+                    <th>Jenis</th>
+                    <th>Tahun</th>
+                    <th>Deskripsi</th>
+                  </tr>";
+
+            $no = 1;
+            foreach ($daftarPrestasi as $row) {
+                echo "<tr>";
+                echo "<td>" . $no++ . "</td>";
+                echo "<td>" . htmlspecialchars($row['judul_prestasi']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['kategori']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['jenis_prestasi']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['tahun']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['deskripsi']) . "</td>";
+                echo "</tr>";
+            }
+            echo "</table>";
+            exit();
+        }
+    }
 } catch (Exception $e) {
     $pesan_error = $e->getMessage();
 } catch (PDOException $e) {
@@ -368,12 +426,32 @@ try {
 
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <h1 class="text-xl font-bold text-gray-800">Daftar Portofolio Tersimpan</h1>
-                <button onclick="bukaModal('modal-form')" class="bg-udinus-navy hover:bg-blue-900 text-white font-bold py-2.5 px-5 rounded-xl transition shadow-md flex items-center gap-2 hover:-translate-y-0.5">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                    </svg>
-                    Tambah Data Prestasi
-                </button>
+
+                <!-- BAGIAN TOMBOL DIMODIFIKASI: Menambahkan tombol CSV & Excel -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <a href="admin-prestasi.php?unduh=csv" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl transition shadow-md flex items-center gap-2 hover:-translate-y-0.5 text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        CSV
+                    </a>
+
+                    <a href="admin-prestasi.php?unduh=excel" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-4 rounded-xl transition shadow-md flex items-center gap-2 hover:-translate-y-0.5 text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Excel
+                    </a>
+
+                    <button onclick="bukaModal('modal-form')" class="bg-udinus-navy hover:bg-blue-900 text-white font-bold py-2.5 px-5 rounded-xl transition shadow-md flex items-center gap-2 hover:-translate-y-0.5 text-sm">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        Tambah Data
+                    </button>
+                </div>
+                <!-- AKHIR BAGIAN TOMBOL DIMODIFIKASI -->
+
             </div>
 
             <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">

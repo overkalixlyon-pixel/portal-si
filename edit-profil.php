@@ -52,37 +52,38 @@ try {
         $ringkasan           = htmlspecialchars(trim($_POST['ringkasan_profesional']));
         $keahlian            = htmlspecialchars(trim($_POST['keahlian_input']));
 
-        // Memproses Data Array Dinamis (Riwayat Karir)
+        // Memproses Data Array Dinamis (Riwayat Karir) - Disempurnakan
         $karir_arr = [];
         if (isset($_POST['karir_posisi']) && is_array($_POST['karir_posisi'])) {
             for ($i = 0; $i < count($_POST['karir_posisi']); $i++) {
-                if (!empty(trim($_POST['karir_posisi'][$i]))) {
+                if (!empty(trim($_POST['karir_posisi'][$i] ?? ''))) {
                     $karir_arr[] = [
-                        'posisi' => htmlspecialchars(trim($_POST['karir_posisi'][$i])),
-                        'perusahaan' => htmlspecialchars(trim($_POST['karir_perusahaan'][$i])),
-                        'mulai' => htmlspecialchars(trim($_POST['karir_mulai'][$i])),
-                        'selesai' => htmlspecialchars(trim($_POST['karir_selesai'][$i])),
-                        'deskripsi' => htmlspecialchars(trim($_POST['karir_deskripsi'][$i]))
+                        'posisi' => htmlspecialchars(trim($_POST['karir_posisi'][$i] ?? '')),
+                        'perusahaan' => htmlspecialchars(trim($_POST['karir_perusahaan'][$i] ?? '')),
+                        'mulai' => htmlspecialchars(trim($_POST['karir_mulai'][$i] ?? '')),
+                        'selesai' => htmlspecialchars(trim($_POST['karir_selesai'][$i] ?? '')),
+                        'deskripsi' => htmlspecialchars(trim($_POST['karir_deskripsi'][$i] ?? ''))
                     ];
                 }
             }
         }
-        $json_karir = json_encode($karir_arr);
+        $json_karir = json_encode($karir_arr, JSON_UNESCAPED_UNICODE);
 
-        // Memproses Data Array Dinamis (Sertifikat)
+        // Memproses Data Array Dinamis (Sertifikat) - Disempurnakan
         $sertifikat_arr = [];
         if (isset($_POST['sertif_nama']) && is_array($_POST['sertif_nama'])) {
             for ($i = 0; $i < count($_POST['sertif_nama']); $i++) {
-                if (!empty(trim($_POST['sertif_nama'][$i]))) {
+                if (!empty(trim($_POST['sertif_nama'][$i] ?? ''))) {
                     $sertifikat_arr[] = [
-                        'nama' => htmlspecialchars(trim($_POST['sertif_nama'][$i])),
-                        'penerbit' => htmlspecialchars(trim($_POST['sertif_penerbit'][$i])),
-                        'tahun' => htmlspecialchars(trim($_POST['sertif_tahun'][$i]))
+                        'nama' => htmlspecialchars(trim($_POST['sertif_nama'][$i] ?? '')),
+                        'penerbit' => htmlspecialchars(trim($_POST['sertif_penerbit'][$i] ?? '')),
+                        'tahun' => htmlspecialchars(trim($_POST['sertif_tahun'][$i] ?? '')),
+                        'url' => htmlspecialchars(trim($_POST['sertif_url'][$i] ?? ''))
                     ];
                 }
             }
         }
-        $json_sertifikat = json_encode($sertifikat_arr);
+        $json_sertifikat = json_encode($sertifikat_arr, JSON_UNESCAPED_UNICODE);
 
         // Fungsi Bantu Upload
         function prosesUpload($file_input, $prefix, $foto_lama)
@@ -217,7 +218,7 @@ $fotoSampulAktif = getUrlFoto($profil['foto_sampul'], 'cover');
     <aside id="sidebar-dashboard" class="fixed inset-y-0 left-0 z-50 w-72 bg-udinus-navy text-white h-full shadow-2xl transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 flex flex-col">
         <div class="flex items-center justify-center h-20 border-b border-white/10 gap-4 px-6 bg-udinus-navy/50">
             <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-1 shadow-lg">
-                <img src="assets/images/logo-udinus.png" alt="Logo" class="w-full h-full object-contain">
+                <img src="assets/images/logo-udinus.png" alt="Logo" class="w-full h-full object-contain" onerror="this.src='https://via.placeholder.com/40?text=U'">
             </div>
             <span class="font-bold tracking-widest uppercase text-sm text-gray-100">Portal Alumni</span>
         </div>
@@ -368,8 +369,8 @@ $fotoSampulAktif = getUrlFoto($profil['foto_sampul'], 'cover');
                         <div><label class="block text-sm font-semibold text-gray-700 mb-2">Nama Lengkap</label><input type="text" name="nama_lengkap" value="<?php echo htmlspecialchars($profil['nama_lengkap']); ?>" required class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition"></div>
                         <div><label class="block text-sm font-semibold text-gray-700 mb-2">NIM (Terkunci)</label><input type="text" value="<?php echo htmlspecialchars($profil['nim']); ?>" readonly class="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"></div>
                         <div class="grid grid-cols-2 gap-4">
-                            <div><label class="block text-sm font-semibold text-gray-700 mb-2">Tahun Masuk</label><input type="number" name="tahun_masuk" value="<?php echo htmlspecialchars($profil['tahun_masuk'] ?? ''); ?>" required class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition"></div>
-                            <div><label class="block text-sm font-semibold text-gray-700 mb-2">Tahun Lulus</label><input type="number" name="tahun_lulus" value="<?php echo htmlspecialchars($profil['tahun_lulus'] ?? ''); ?>" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition"></div>
+                            <div><label class="block text-sm font-semibold text-gray-700 mb-2">Tahun Masuk</label><input type="number" min="1990" max="2050" name="tahun_masuk" value="<?php echo htmlspecialchars($profil['tahun_masuk'] ?? ''); ?>" required class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition"></div>
+                            <div><label class="block text-sm font-semibold text-gray-700 mb-2">Tahun Lulus</label><input type="number" min="1990" max="2050" name="tahun_lulus" value="<?php echo htmlspecialchars($profil['tahun_lulus'] ?? ''); ?>" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition"></div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div><label class="block text-sm font-semibold text-gray-700 mb-2">Angkatan</label><input type="text" name="angkatan" value="<?php echo htmlspecialchars($profil['angkatan']); ?>" required class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition"></div>
@@ -545,26 +546,34 @@ $fotoSampulAktif = getUrlFoto($profil['foto_sampul'], 'cover');
             karirContainer.insertAdjacentHTML('beforeend', html);
         }
 
-        // Fungsi Tambah Sertifikat
+        // Fungsi Tambah Sertifikat (Disempurnakan dengan URL)
         function addSertifikat(data = null) {
             const nam = data ? data.nama : '';
             const pen = data ? data.penerbit : '';
             const tah = data ? data.tahun : '';
+            const url = data && data.url ? data.url : '';
 
             const html = `
-                <div class="flex flex-col md:flex-row gap-3 items-start md:items-end p-4 border border-gray-200 rounded-xl bg-gray-50/50 group hover:border-gray-300 transition">
-                    <div class="flex-1 w-full"><label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Nama Sertifikat</label><input type="text" name="sertif_nama[]" value="${nam}" placeholder="Cth: AWS Cloud Practitioner" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-1 focus:ring-udinus-navy bg-white" required></div>
-                    <div class="flex-1 w-full"><label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Penerbit</label><input type="text" name="sertif_penerbit[]" value="${pen}" placeholder="Cth: Amazon" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-1 focus:ring-udinus-navy bg-white" required></div>
-                    <div class="w-full md:w-32"><label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Tahun</label><input type="number" name="sertif_tahun[]" value="${tah}" placeholder="2023" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-1 focus:ring-udinus-navy bg-white" required></div>
-                    <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 focus:outline-none p-2 bg-red-50 rounded-lg md:mb-[1px]">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                <div class="p-4 border border-gray-200 rounded-xl bg-gray-50/50 group hover:border-gray-300 transition relative">
+                    <button type="button" onclick="this.parentElement.remove()" class="absolute top-4 right-4 text-red-400 hover:text-red-600 focus:outline-none p-1 bg-red-50 rounded-md opacity-0 group-hover:opacity-100 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     </button>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 pr-8">
+                        <div><label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Nama Sertifikat</label><input type="text" name="sertif_nama[]" value="${nam}" placeholder="Cth: AWS Cloud Practitioner" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-1 focus:ring-udinus-navy bg-white" required></div>
+                        <div><label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Penerbit</label><input type="text" name="sertif_penerbit[]" value="${pen}" placeholder="Cth: Amazon Web Services" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-1 focus:ring-udinus-navy bg-white" required></div>
+                        <div><label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Tahun Terbit</label><input type="number" min="1990" max="${new Date().getFullYear()}" name="sertif_tahun[]" value="${tah}" placeholder="Cth: 2023" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-1 focus:ring-udinus-navy bg-white" required></div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">URL Kredensial (Opsional)</label>
+                        <input type="url" name="sertif_url[]" value="${url}" placeholder="https://coursera.org/verify/..." class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-1 focus:ring-udinus-navy bg-white">
+                    </div>
                 </div>
             `;
             sertifikatContainer.insertAdjacentHTML('beforeend', html);
         }
 
-        // Tags Logic (Keahlian)
+        // Tags Logic (Keahlian) - Disempurnakan
         const tagInput = document.getElementById('tag-input');
         const tagsContainer = document.getElementById('tags-container');
         const hiddenKeahlian = document.getElementById('keahlian_hidden');
@@ -590,19 +599,23 @@ $fotoSampulAktif = getUrlFoto($profil['foto_sampul'], 'cover');
             if (e.key === 'Enter' || e.key === ',') {
                 e.preventDefault();
                 const value = tagInput.value.trim().replace(/,/g, '');
-                if (value && !tags.includes(value)) {
+                // Cegah duplikasi dengan case-insensitive check
+                if (value && !tags.some(t => t.toLowerCase() === value.toLowerCase())) {
                     tags.push(value);
                     tagInput.value = '';
                     renderTags();
+                } else if (tags.some(t => t.toLowerCase() === value.toLowerCase())) {
+                    tagInput.value = ''; // Reset input kalau sudah ada yang sama
                 }
             }
         });
 
         // Initialize Prefills
         if (prefillKarir.length > 0) prefillKarir.forEach(k => addKarir(k));
-        else addKarir(); // Form kosong default 1
+        else addKarir();
 
         if (prefillSertifikat.length > 0) prefillSertifikat.forEach(s => addSertifikat(s));
+        else addSertifikat(); // Form sertifikat kosong default agar UX lebih baik
 
         renderTags();
 
