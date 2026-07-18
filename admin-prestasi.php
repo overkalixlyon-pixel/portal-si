@@ -1,7 +1,12 @@
 <?php
 // 1. Memulai Sesi dan Proteksi Halaman Khusus Admin
 session_start();
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+
+// Menyesuaikan penamaan session (mengatasi potensi perbedaan nama variabel sesi admin)
+$session_role = $_SESSION['role'] ?? ($_SESSION['role_admin'] ?? '');
+$session_id = $_SESSION['user_id'] ?? ($_SESSION['user_id_admin'] ?? '');
+
+if (empty($session_id) || $session_role !== 'admin') {
     header("Location: login-admin.php");
     exit();
 }
@@ -10,6 +15,18 @@ require_once 'config/koneksi.php';
 
 $pesan_sukses = "";
 $pesan_error = "";
+
+// =========================================================================
+// PENGATURAN NAMA TAMPILAN BERDASARKAN USER LOGIN
+// =========================================================================
+$username_login = isset($_SESSION['username_admin']) ? strtolower($_SESSION['username_admin']) : (isset($_SESSION['username']) ? strtolower($_SESSION['username']) : '');
+$nama_tampilan = "Admin Pusat";
+
+if (strpos($username_login, 'kaprodi') !== false) {
+    $nama_tampilan = "Pimpinan Program Studi";
+} elseif (strpos($username_login, 'sekre') !== false || strpos($username_login, 'sekretariat') !== false) {
+    $nama_tampilan = "Sekretariat Prodi";
+}
 
 // 2. Fungsi Eksekusi Pesan Sukses (Pola PRG)
 if (isset($_GET['sukses'])) {
@@ -50,11 +67,12 @@ try {
     // B. LOGIKA CREATE & UPDATE (Metode POST dari Form)
     if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
-        $aksi           = $_POST['aksi']; // Penanda apakah ini 'tambah' atau 'edit'
-        $judul_prestasi = htmlspecialchars(trim($_POST['judul_prestasi']));
-        $kategori       = htmlspecialchars(trim($_POST['kategori'])); // himpunan / alumni
-        $tahun          = (int) $_POST['tahun'];
-        $deskripsi      = htmlspecialchars(trim($_POST['deskripsi']));
+        $aksi           = $_POST['aksi'] ?? ''; // Penanda apakah ini 'tambah' atau 'edit'
+        $judul_prestasi = htmlspecialchars(trim($_POST['judul_prestasi'] ?? ''));
+        $kategori       = htmlspecialchars(trim($_POST['kategori'] ?? '')); // mahasiswa / himpunan / dosen
+        $jenis_prestasi = htmlspecialchars(trim($_POST['jenis_prestasi'] ?? '')); // akademik / non akademik
+        $tahun          = (int) ($_POST['tahun'] ?? 0);
+        $deskripsi      = htmlspecialchars(trim($_POST['deskripsi'] ?? ''));
 
         // --- Logika Upload Foto Aman ---
         $nama_file_baru = "";
@@ -71,10 +89,15 @@ try {
             $ekstensi_file  = strtolower(end($ekstensi_file));
 
             if (!in_array($ekstensi_file, $ekstensi_valid)) {
-                throw new Exception("Format gambar ditolak! Gunakan ekstensi JPG, JPEG, atau PNG.");
+                throw new Exception("Format gambar ditolak! Gunakan ekstensi JPG, JPEG, PNG, atau WEBP.");
             }
             if ($ukuran_file > 3000000) { // Limit 3MB
                 throw new Exception("Ukuran aset visual terlalu besar. Maksimal pengunggahan adalah 3MB.");
+            }
+
+            // Pastikan folder exists
+            if (!is_dir('assets/images/')) {
+                mkdir('assets/images/', 0777, true);
             }
 
             // Generate nama file acak agar tidak bentrok
@@ -89,13 +112,14 @@ try {
                 throw new Exception("Bukti visual (gambar) wajib dilampirkan untuk data prestasi baru.");
             }
 
-            $sqlInsert = "INSERT INTO tabel_prestasi (admin_id, judul_prestasi, kategori, tahun, deskripsi, gambar_prestasi)
-                          VALUES (:admin_id, :judul, :kategori, :tahun, :deskripsi, :gambar)";
+            $sqlInsert = "INSERT INTO tabel_prestasi (admin_id, judul_prestasi, kategori, jenis_prestasi, tahun, deskripsi, gambar_prestasi)
+                          VALUES (:admin_id, :judul, :kategori, :jenis, :tahun, :deskripsi, :gambar)";
             $stmt = $koneksi->prepare($sqlInsert);
             $stmt->execute([
-                ':admin_id'  => $_SESSION['user_id'], // Inject ID Admin yang bertugas
+                ':admin_id'  => $session_id, // Inject ID Admin yang bertugas
                 ':judul'     => $judul_prestasi,
                 ':kategori'  => $kategori,
+                ':jenis'     => $jenis_prestasi,
                 ':tahun'     => $tahun,
                 ':deskripsi' => $deskripsi,
                 ':gambar'    => $nama_file_baru
@@ -116,14 +140,29 @@ try {
                 }
 
                 // Update data beserta foto baru
-                $sqlEdit = "UPDATE tabel_prestasi SET judul_prestasi = :judul, kategori = :kategori, tahun = :tahun, deskripsi = :deskripsi, gambar_prestasi = :gambar WHERE id = :id";
+                $sqlEdit = "UPDATE tabel_prestasi SET judul_prestasi = :judul, kategori = :kategori, jenis_prestasi = :jenis, tahun = :tahun, deskripsi = :deskripsi, gambar_prestasi = :gambar WHERE id = :id";
                 $stmt = $koneksi->prepare($sqlEdit);
-                $stmt->execute([':judul' => $judul_prestasi, ':kategori' => $kategori, ':tahun' => $tahun, ':deskripsi' => $deskripsi, ':gambar' => $nama_file_baru, ':id' => $id_edit]);
+                $stmt->execute([
+                    ':judul' => $judul_prestasi,
+                    ':kategori' => $kategori,
+                    ':jenis' => $jenis_prestasi,
+                    ':tahun' => $tahun,
+                    ':deskripsi' => $deskripsi,
+                    ':gambar' => $nama_file_baru,
+                    ':id' => $id_edit
+                ]);
             } else {
                 // Update data TANPA merubah foto
-                $sqlEdit = "UPDATE tabel_prestasi SET judul_prestasi = :judul, kategori = :kategori, tahun = :tahun, deskripsi = :deskripsi WHERE id = :id";
+                $sqlEdit = "UPDATE tabel_prestasi SET judul_prestasi = :judul, kategori = :kategori, jenis_prestasi = :jenis, tahun = :tahun, deskripsi = :deskripsi WHERE id = :id";
                 $stmt = $koneksi->prepare($sqlEdit);
-                $stmt->execute([':judul' => $judul_prestasi, ':kategori' => $kategori, ':tahun' => $tahun, ':deskripsi' => $deskripsi, ':id' => $id_edit]);
+                $stmt->execute([
+                    ':judul' => $judul_prestasi,
+                    ':kategori' => $kategori,
+                    ':jenis' => $jenis_prestasi,
+                    ':tahun' => $tahun,
+                    ':deskripsi' => $deskripsi,
+                    ':id' => $id_edit
+                ]);
             }
             header("Location: admin-prestasi.php?sukses=edit");
             exit();
@@ -147,7 +186,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kelola Prestasi | Ruang Kendali Admin</title>
+    <title>Kelola Prestasi | SI UDINUS</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -167,22 +206,32 @@ try {
     </script>
 </head>
 
-<body class="bg-gray-50 font-sans antialiased flex h-screen overflow-hidden text-gray-800 selection:bg-udinus-gold selection:text-white">
+<body class="bg-gray-50 font-sans antialiased flex h-screen overflow-hidden text-gray-800 selection:bg-udinus-gold selection:text-white relative">
 
-    <aside id="sidebar-admin" class="hidden absolute inset-y-0 left-0 z-50 md:relative md:flex flex-col w-64 bg-gray-900 text-gray-300 h-full shadow-2xl transition-transform duration-300 border-r border-gray-800">
+    <!-- OVERLAY UNTUK SIDEBAR MOBILE -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-gray-900/50 z-40 hidden md:hidden transition-opacity backdrop-blur-sm"></div>
 
-        <div class="flex items-center justify-center h-20 border-b border-gray-800 gap-3 px-6 bg-gray-950/50">
-            <div class="w-8 h-8 bg-gradient-to-br from-yellow-400 to-udinus-gold rounded flex items-center justify-center p-1 shadow-md shadow-udinus-gold/20">
-                <svg class="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                </svg>
+    <!-- SIDEBAR -->
+    <aside id="sidebar-admin" class="fixed inset-y-0 left-0 z-50 md:relative w-64 bg-gray-900 text-gray-300 h-full shadow-2xl transition-transform duration-300 transform -translate-x-full md:translate-x-0 border-r border-gray-800 flex flex-col">
+        <div class="flex items-center justify-between h-20 border-b border-gray-800 px-6 bg-gray-950/50">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-gradient-to-br from-yellow-400 to-udinus-gold rounded flex items-center justify-center p-1 shadow-md shadow-udinus-gold/20">
+                    <svg class="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                </div>
+                <span class="font-bold tracking-wider uppercase text-sm text-white">Admin Pusat</span>
             </div>
-            <span class="font-bold tracking-wider uppercase text-sm text-white">Admin Pusat</span>
+            <!-- TOMBOL CLOSE SIDEBAR MOBILE -->
+            <button id="btn-close-sidebar" class="md:hidden text-gray-400 hover:text-white focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
         </div>
 
         <div class="overflow-y-auto overflow-x-hidden flex-grow py-6 scrollbar-hide">
             <ul class="flex flex-col py-2 space-y-1.5 px-4">
-
                 <li class="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 mt-2">Indikator Mutu</li>
                 <li>
                     <a href="admin-dashboard.php" class="flex flex-row items-center h-11 text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl px-4 transition duration-300">
@@ -195,11 +244,12 @@ try {
 
                 <li class="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-8 mb-2">Manajemen Konten (CMS)</li>
                 <li>
-                    <a href="admin-prestasi.php" class="flex flex-row items-center h-11 text-udinus-gold bg-gray-800/80 rounded-xl px-4 transition duration-300 border border-gray-700/50 shadow-inner">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <!-- MENU AKTIF -->
+                    <a href="admin-prestasi.php" class="flex flex-row items-center h-11 text-white bg-gray-800 rounded-xl px-4 transition duration-300 border border-gray-700/50 shadow-inner">
+                        <svg class="w-5 h-5 text-udinus-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path>
                         </svg>
-                        <span class="ml-3 text-sm font-semibold tracking-wide">Kelola Prestasi</span>
+                        <span class="ml-3 text-sm font-bold tracking-wide">Kelola Prestasi</span>
                     </a>
                 </li>
                 <li>
@@ -207,7 +257,7 @@ try {
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                         </svg>
-                        <span class="ml-3 text-sm font-medium tracking-wide">Kelola Dosen & Staf</span>
+                        <span class="ml-3 text-sm font-medium tracking-wide">Kelola Dosen</span>
                     </a>
                 </li>
                 <li>
@@ -223,7 +273,7 @@ try {
         </div>
 
         <div class="p-5 border-t border-gray-800 bg-gray-950/30">
-            <a href="logout.php" class="flex items-center gap-3 text-sm font-semibold text-red-400 hover:text-red-300 transition duration-300 bg-red-400/10 hover:bg-red-400/20 py-2.5 px-4 rounded-xl border border-red-400/20">
+            <a href="logout-admin.php" onclick="return confirm('Apakah Anda yakin ingin mengakhiri sesi admin?');" class="flex items-center gap-3 text-sm font-semibold text-red-400 hover:text-red-300 transition duration-300 bg-red-400/10 hover:bg-red-400/20 py-2.5 px-4 rounded-xl border border-red-400/20">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                 </svg>
@@ -234,6 +284,7 @@ try {
 
     <div class="flex-1 flex flex-col h-full relative overflow-hidden bg-gray-100">
 
+        <!-- HEADER DENGAN DROPDOWN PROFIL -->
         <header class="h-20 bg-white shadow-sm flex items-center justify-between px-6 md:px-10 z-30 relative border-b border-gray-200">
             <div class="flex items-center gap-4">
                 <button id="btn-sidebar-admin" class="md:hidden text-gray-500 hover:text-gray-800 focus:outline-none transition">
@@ -241,27 +292,62 @@ try {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                     </svg>
                 </button>
-                <div class="text-xl font-extrabold text-gray-800 tracking-tight">Manajemen Prestasi Mahasiswa & Alumni</div>
+
+                <div class="flex items-center gap-2 text-sm">
+                    <a href="admin-dashboard.php" class="text-gray-500 hover:text-udinus-navy font-semibold transition hidden sm:inline-block">Dashboard</a>
+                    <svg class="w-4 h-4 text-gray-400 hidden sm:inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                    <span class="text-gray-800 font-extrabold tracking-tight">Manajemen Prestasi Mahasiswa & Alumni</span>
+                </div>
             </div>
 
-            <div class="flex items-center gap-4">
-                <div class="text-right hidden sm:block">
-                    <p class="text-sm font-bold text-gray-800 leading-tight uppercase tracking-wider">Sekretariat Prodi</p>
-                    <div class="flex items-center justify-end gap-1.5 mt-0.5">
-                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                        <p class="text-[10px] text-gray-500 font-bold tracking-widest uppercase">Admin Online</p>
+            <!-- PROFIL & DROPDOWN -->
+            <div class="relative">
+                <button id="btn-profil" class="flex items-center gap-4 group focus:outline-none text-left cursor-pointer">
+                    <div class="hidden sm:block">
+                        <p class="text-sm font-bold text-gray-800 leading-tight uppercase tracking-wider"><?php echo htmlspecialchars($nama_tampilan); ?></p>
+                        <div class="flex items-center justify-end gap-1.5 mt-0.5">
+                            <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                            <p class="text-[10px] text-gray-500 font-bold tracking-widest uppercase">Setelan Akun</p>
+                            <!-- Ikon Chevron -->
+                            <svg class="w-3 h-3 text-gray-400 group-hover:text-gray-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
                     </div>
-                </div>
-                <div class="w-11 h-11 rounded-full bg-gradient-to-br from-udinus-navy to-blue-800 text-white flex items-center justify-center font-bold shadow-md ring-2 ring-blue-100">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                    </svg>
+                    <div class="w-11 h-11 rounded-full bg-gradient-to-br from-udinus-navy to-blue-800 text-white flex items-center justify-center font-bold shadow-md ring-2 ring-blue-100 transition transform group-hover:scale-105">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                </button>
+
+                <!-- MENU DROPDOWN (Ubah Password & Logout) -->
+                <div id="dropdown-profil" class="absolute right-0 mt-3 w-52 bg-white rounded-xl shadow-xl border border-gray-100 hidden z-50 transform opacity-0 transition-all duration-200 origin-top-right scale-95">
+                    <div class="p-2">
+                        <a href="admin-ganti-password.php" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-udinus-navy rounded-lg transition">
+                            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                            </svg>
+                            Ubah Password
+                        </a>
+                        <div class="border-t border-gray-100 my-1"></div>
+                        <a href="logout-admin.php" onclick="return confirm('Apakah Anda yakin ingin mengakhiri sesi admin?');" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-lg transition">
+                            <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                            </svg>
+                            Akhiri Sesi
+                        </a>
+                    </div>
                 </div>
             </div>
         </header>
 
+        <!-- MAIN CONTENT -->
         <main class="flex-1 overflow-x-hidden overflow-y-auto p-6 md:p-10">
 
+            <!-- NOTIFIKASI -->
             <?php if (!empty($pesan_error)): ?>
                 <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-8 rounded-xl font-semibold shadow-sm flex items-center gap-3">
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -282,7 +368,7 @@ try {
 
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <h1 class="text-xl font-bold text-gray-800">Daftar Portofolio Tersimpan</h1>
-                <button onclick="bukaModal('modal-form')" class="bg-udinus-navy hover:bg-blue-900 text-white font-bold py-2.5 px-5 rounded-lg transition shadow-md flex items-center gap-2">
+                <button onclick="bukaModal('modal-form')" class="bg-udinus-navy hover:bg-blue-900 text-white font-bold py-2.5 px-5 rounded-xl transition shadow-md flex items-center gap-2 hover:-translate-y-0.5">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                     </svg>
@@ -313,13 +399,19 @@ try {
                                     <tr class="hover:bg-blue-50/30 transition">
                                         <td class="px-6 py-4 w-32">
                                             <div class="w-24 h-16 rounded-md overflow-hidden shadow-sm border border-gray-200 bg-gray-100">
-                                                <img src="assets/images/<?php echo htmlspecialchars($pres['gambar_prestasi']); ?>" alt="Prestasi" class="w-full h-full object-cover">
+                                                <?php
+                                                $fotoPres = !empty($pres['gambar_prestasi']) ? $pres['gambar_prestasi'] : 'default-cover.png';
+                                                ?>
+                                                <img src="assets/images/<?php echo htmlspecialchars($fotoPres); ?>" alt="Prestasi" class="w-full h-full object-cover">
                                             </div>
                                         </td>
                                         <td class="px-6 py-4">
                                             <h3 class="font-extrabold text-gray-900 text-base mb-1.5 leading-tight"><?php echo htmlspecialchars($pres['judul_prestasi']); ?></h3>
-                                            <div class="flex items-center gap-2 text-[10px] font-bold tracking-wider">
+                                            <div class="flex items-center gap-2 text-[10px] font-bold tracking-wider flex-wrap">
                                                 <span class="bg-udinus-gold/20 text-yellow-700 px-2 py-1 rounded uppercase border border-yellow-200/50"><?php echo htmlspecialchars($pres['kategori']); ?></span>
+                                                <?php if (!empty($pres['jenis_prestasi'])): ?>
+                                                    <span class="bg-blue-50 text-blue-600 px-2 py-1 rounded uppercase border border-blue-200/50"><?php echo htmlspecialchars($pres['jenis_prestasi']); ?></span>
+                                                <?php endif; ?>
                                                 <span class="text-gray-500 bg-gray-100 px-2 py-1 rounded border border-gray-200">Tahun: <?php echo htmlspecialchars($pres['tahun']); ?></span>
                                             </div>
                                         </td>
@@ -330,7 +422,7 @@ try {
                                         </td>
                                         <td class="px-6 py-4 text-center w-28">
                                             <div class="flex items-center justify-center gap-1">
-                                                <button onclick="editData(<?php echo htmlspecialchars(json_encode($pres)); ?>)" class="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition" title="Edit Data">
+                                                <button onclick='editData(<?php echo htmlspecialchars(json_encode($pres), ENT_QUOTES, 'UTF-8'); ?>)' class="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition" title="Edit Data">
                                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                                     </svg>
@@ -353,12 +445,13 @@ try {
         </main>
     </div>
 
-    <div id="modal-form" class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-900/60 backdrop-blur-sm transition-opacity px-4">
-        <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl mx-auto overflow-hidden transform scale-100 flex flex-col max-h-[90vh] border border-gray-100">
+    <!-- MODAL FORM -->
+    <div id="modal-form" class="fixed inset-0 z-[60] hidden items-center justify-center bg-gray-900/60 backdrop-blur-sm transition-opacity px-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl mx-auto overflow-hidden flex flex-col max-h-[90vh] border border-gray-100 animate-[pulse_0.2s_ease-out_1]">
 
             <div class="bg-gradient-to-r from-udinus-navy to-blue-900 p-6 flex justify-between items-center flex-shrink-0">
                 <h3 id="modal-title" class="text-xl font-extrabold text-white tracking-tight">Formulir Perekaman Data</h3>
-                <button onclick="tutupModal()" class="text-gray-300 hover:text-white focus:outline-none transition">
+                <button type="button" onclick="tutupModal()" class="text-gray-300 hover:text-white focus:outline-none transition">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
@@ -372,32 +465,40 @@ try {
 
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-2">Judul Pencapaian / Prestasi</label>
-                    <input type="text" name="judul_prestasi" id="input-judul" required placeholder="Cth: Pendanaan PPK ORMAWA Nasional" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition">
+                    <input type="text" name="judul_prestasi" id="input-judul" required placeholder="Cth: Pendanaan PPK ORMAWA Nasional" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 focus:bg-white transition">
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">Kategori Tingkat</label>
-                        <select name="kategori" id="input-kategori" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-udinus-navy bg-white shadow-sm">
-                            <option value="himpunan">Himpunan / Mahasiswa Aktif</option>
-                            <option value="alumni">Jejaring Alumni</option>
+                        <select name="kategori" id="input-kategori" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm cursor-pointer">
+                            <option value="mahasiswa">Mahasiswa</option>
+                            <option value="himpunan">Himpunan</option>
+                            <option value="dosen">Dosen</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Tahun Pencapaian</label>
-                        <input type="number" name="tahun" id="input-tahun" required placeholder="Cth: 2026" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Jenis Prestasi</label>
+                        <select name="jenis_prestasi" id="input-jenis" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white shadow-sm cursor-pointer">
+                            <option value="akademik">Akademik</option>
+                            <option value="non akademik">Non Akademik</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Tahun</label>
+                        <input type="number" name="tahun" id="input-tahun" required placeholder="Cth: <?php echo date('Y'); ?>" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 focus:bg-white transition">
                     </div>
                 </div>
 
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-2">Deskripsi Kronologis</label>
-                    <textarea name="deskripsi" id="input-deskripsi" rows="4" required placeholder="Tuliskan intisari dan dampak dari pencapaian tersebut secara singkat..." class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-udinus-navy resize-none bg-gray-50 focus:bg-white transition"></textarea>
+                    <textarea name="deskripsi" id="input-deskripsi" rows="4" required placeholder="Tuliskan intisari dan dampak dari pencapaian tersebut secara singkat..." class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-gray-50 focus:bg-white transition"></textarea>
                 </div>
 
                 <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-5 shadow-sm">
                     <label class="block text-sm font-bold text-udinus-navy mb-3">Dokumentasi Visual (Poster/Sertifikat/Foto)</label>
                     <input type="file" name="gambar_prestasi" id="input-gambar" accept=".jpg, .jpeg, .png, .webp" class="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-white file:text-udinus-navy file:shadow-sm hover:file:bg-gray-50 cursor-pointer">
-                    <p id="helper-gambar" class="text-[11px] text-gray-500 mt-3 font-semibold">*Wajib melampirkan gambar (Maks. 3MB, Format: JPG/PNG).</p>
+                    <p id="helper-gambar" class="text-[11px] text-gray-500 mt-3 font-semibold">*Wajib melampirkan gambar (Maks. 3MB, Format: JPG/PNG/WEBP).</p>
                 </div>
 
                 <div class="pt-6 flex justify-end gap-3 border-t border-gray-100">
@@ -413,33 +514,83 @@ try {
         </div>
     </div>
 
+    <!-- JAVASCRIPT LOGIKA UI -->
     <script>
-        // Logika Sidebar Mobile
+        // ==========================================
+        // PERBAIKAN LOGIKA SIDEBAR MOBILE
+        // ==========================================
         const btnSidebarAdmin = document.getElementById('btn-sidebar-admin');
+        const btnCloseSidebar = document.getElementById('btn-close-sidebar');
         const sidebarAdmin = document.getElementById('sidebar-admin');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+        function toggleSidebar() {
+            sidebarAdmin.classList.toggle('-translate-x-full');
+            sidebarOverlay.classList.toggle('hidden');
+        }
+
         if (btnSidebarAdmin && sidebarAdmin) {
-            btnSidebarAdmin.addEventListener('click', () => {
-                sidebarAdmin.classList.toggle('hidden');
-                sidebarAdmin.classList.toggle('flex');
+            btnSidebarAdmin.addEventListener('click', toggleSidebar);
+            btnCloseSidebar.addEventListener('click', toggleSidebar);
+            sidebarOverlay.addEventListener('click', toggleSidebar);
+        }
+
+        // ==========================================
+        // LOGIKA DROPDOWN PROFIL (UBAH PASSWORD)
+        // ==========================================
+        const btnProfil = document.getElementById('btn-profil');
+        const dropdownProfil = document.getElementById('dropdown-profil');
+
+        if (btnProfil && dropdownProfil) {
+            btnProfil.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (dropdownProfil.classList.contains('hidden')) {
+                    dropdownProfil.classList.remove('hidden');
+                    setTimeout(() => {
+                        dropdownProfil.classList.remove('opacity-0', 'scale-95');
+                        dropdownProfil.classList.add('opacity-100', 'scale-100');
+                    }, 10);
+                } else {
+                    tutupDropdown();
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!btnProfil.contains(e.target) && !dropdownProfil.contains(e.target)) {
+                    tutupDropdown();
+                }
             });
         }
 
-        // Logika Pengendali Modal CRUD
+        function tutupDropdown() {
+            if (!dropdownProfil.classList.contains('hidden')) {
+                dropdownProfil.classList.remove('opacity-100', 'scale-100');
+                dropdownProfil.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => {
+                    dropdownProfil.classList.add('hidden');
+                }, 200);
+            }
+        }
+
+        // ==========================================
+        // LOGIKA MODAL FORM PRESTASI
+        // ==========================================
         const modalForm = document.getElementById('modal-form');
 
         function bukaModal() {
-            // Reset form jika diklik 'Tambah Data Baru'
             document.getElementById('modal-title').innerText = "Rekam Data Prestasi Baru";
             document.getElementById('input-aksi').value = "tambah";
+
+            // Reset isi form
             document.getElementById('input-id').value = "";
             document.getElementById('input-judul').value = "";
-            document.getElementById('input-tahun').value = "";
+            document.getElementById('input-kategori').value = "mahasiswa";
+            document.getElementById('input-jenis').value = "akademik";
+            document.getElementById('input-tahun').value = new Date().getFullYear();
             document.getElementById('input-deskripsi').value = "";
-            document.getElementById('input-kategori').value = "himpunan";
 
-            // Gambar wajib diunggah jika Tambah Baru
             document.getElementById('input-gambar').required = true;
-            document.getElementById('helper-gambar').innerText = "*Wajib melampirkan gambar baru (Maks. 3MB, Format JPG/PNG).";
+            document.getElementById('helper-gambar').innerHTML = "*Wajib melampirkan gambar (Maks. 3MB, Format: JPG/PNG/WEBP).";
 
             modalForm.classList.remove('hidden');
             modalForm.classList.add('flex');
@@ -450,26 +601,31 @@ try {
             modalForm.classList.remove('flex');
         }
 
-        // Fungsi Super Cerdas: Mengubah Modal Tambah Menjadi Modal Edit
         function editData(dataLengkap) {
-            document.getElementById('modal-title').innerText = "Perbarui Data Portofolio";
+            document.getElementById('modal-title').innerText = "Perbarui Data Prestasi";
             document.getElementById('input-aksi').value = "edit";
+
+            // Isi nilai lama ke dalam form
             document.getElementById('input-id').value = dataLengkap.id;
             document.getElementById('input-judul').value = dataLengkap.judul_prestasi;
-            document.getElementById('input-kategori').value = dataLengkap.kategori;
+            document.getElementById('input-kategori').value = dataLengkap.kategori ? dataLengkap.kategori.toLowerCase() : 'mahasiswa';
+
+            // Logika fallback untuk jenis prestasi jika data lama belum memilikinya
+            let jenis = dataLengkap.jenis_prestasi || 'akademik';
+            document.getElementById('input-jenis').value = jenis.toLowerCase();
+
             document.getElementById('input-tahun').value = dataLengkap.tahun;
             document.getElementById('input-deskripsi').value = dataLengkap.deskripsi;
 
-            // Foto TIDAK WAJIB saat mode Edit
             document.getElementById('input-gambar').required = false;
-            document.getElementById('helper-gambar').innerHTML = "<span class='text-udinus-gold'>*Opsional:</span> Kosongkan kolom unggahan ini jika Anda tidak ingin mengubah gambar visual sebelumnya.";
+            document.getElementById('helper-gambar').innerHTML = "<span class='text-udinus-gold'>*Opsional:</span> Kosongkan kolom ini jika Anda tidak ingin mengubah gambar/poster sebelumnya.";
 
             modalForm.classList.remove('hidden');
             modalForm.classList.add('flex');
         }
 
         function konfirmasiHapus(id) {
-            const setuju = confirm("PERINGATAN KRITIS!\n\nApakah Anda yakin ingin menghapus permanen data prestasi ini beserta file fotonya dari server?");
+            const setuju = confirm("PERINGATAN KRITIS!\n\nApakah Anda yakin ingin menghapus data portofolio ini beserta aset visualnya dari database?");
             if (setuju) {
                 window.location.href = "admin-prestasi.php?hapus=" + id;
             }

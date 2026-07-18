@@ -8,6 +8,15 @@ try {
     $queryAlumni = $koneksi->prepare("SELECT * FROM tabel_alumni_profil ORDER BY angkatan DESC, nama_lengkap ASC");
     $queryAlumni->execute();
     $daftarAlumni = $queryAlumni->fetchAll();
+
+    // 3. Mengambil daftar angkatan unik untuk keperluan filter Dropdown
+    $angkatanUnik = [];
+    foreach ($daftarAlumni as $alumni) {
+        if (!in_array($alumni['angkatan'], $angkatanUnik)) {
+            $angkatanUnik[] = $alumni['angkatan'];
+        }
+    }
+    rsort($angkatanUnik); // Urutkan tahun angkatan dari yang terbaru ke terlama
 } catch (PDOException $e) {
     die("Gagal memuat data direktori alumni: " . $e->getMessage());
 }
@@ -20,7 +29,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Informasi UDINUS | Ekosistem Alumni</title>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
 
     <script>
@@ -39,10 +48,28 @@ try {
             }
         }
     </script>
+    <style>
+        .kartu-alumni {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(15px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
 </head>
 
 <body class="bg-gray-50 text-gray-800 font-sans antialiased selection:bg-udinus-gold selection:text-white flex flex-col min-h-screen">
 
+    <!-- ================= HEADER & NAVIGASI (GLASSMORPHISM) ================= -->
     <header class="bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 sticky top-0 z-50 transition-all duration-300">
         <div class="container mx-auto px-6 py-4 flex justify-between items-center">
 
@@ -79,22 +106,26 @@ try {
             </button>
         </div>
 
-        <div id="menu-mobile" class="hidden md:hidden bg-white border-t border-gray-100 px-6 py-4 flex-col gap-4 font-semibold shadow-lg absolute w-full">
+        <div id="menu-mobile" class="hidden md:hidden bg-white border-t border-gray-100 px-6 py-4 flex-col gap-4 font-semibold shadow-lg absolute w-full z-40">
             <a href="index.php" class="block text-udinus-navy hover:text-udinus-gold">Beranda</a>
             <a href="profil.php" class="block text-udinus-navy hover:text-udinus-gold">Profil</a>
             <a href="prestasi.php" class="block text-udinus-navy hover:text-udinus-gold">Prestasi</a>
             <a href="alumni.php" class="block text-udinus-gold">Alumni</a>
             <div class="border-t border-gray-100 pt-2">
                 <a href="login.php" class="flex items-center justify-center gap-2 bg-udinus-navy hover:bg-blue-900 text-white py-2.5 rounded-lg mt-2 shadow-md">
-                    Portal Login
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                    </svg>
+                    Masuk ke Portal
                 </a>
             </div>
         </div>
     </header>
 
+    <!-- ================= HERO BANNER ================= -->
     <section class="relative bg-udinus-navy pt-24 pb-20 md:pt-32 md:pb-28 overflow-hidden border-b-[6px] border-udinus-gold">
         <div class="absolute inset-0 z-0 opacity-[0.05]" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 24px 24px;"></div>
-        <div class="absolute top-0 left-0 w-96 h-96 bg-udinus-gold rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-pulse -translate-x-1/3 -translate-y-1/3"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-udinus-gold rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-pulse"></div>
 
         <div class="container mx-auto px-6 text-center relative z-10">
             <span class="inline-block py-1.5 px-4 rounded-full bg-white/10 border border-white/20 text-udinus-gold font-bold text-xs tracking-widest uppercase mb-5 backdrop-blur-sm shadow-sm">
@@ -109,15 +140,31 @@ try {
         </div>
     </section>
 
-    <section class="py-20 bg-gray-50 flex-grow">
+    <!-- ================= KONTEN ALUMNI ================= -->
+    <section class="py-16 bg-gray-50 flex-grow">
         <div class="container mx-auto px-6 max-w-7xl">
 
-            <div class="text-center mb-16">
-                <h2 class="text-3xl md:text-4xl font-extrabold text-udinus-navy mb-4 tracking-tight">Inspirasi Dunia Kerja</h2>
-                <p class="text-gray-600 max-w-2xl mx-auto text-lg font-medium">Temukan relasi dan saksikan kontribusi nyata lulusan Sistem Informasi UDINUS di dunia profesional.</p>
+            <div class="text-center mb-10 md:mb-16 flex flex-col items-center justify-center">
+                <h2 class="text-3xl md:text-4xl font-extrabold text-udinus-navy mb-3 tracking-tight">Inspirasi Dunia Kerja</h2>
+                <p class="text-gray-600 max-w-2xl mx-auto text-lg font-medium mb-8">Temukan relasi dan saksikan kontribusi nyata lulusan Sistem Informasi UDINUS di dunia profesional.</p>
+
+                <!-- Filter Kategori / Tahun -->
+                <div class="relative w-full max-w-xs mx-auto">
+                    <select id="filter-angkatan" onchange="filterAlumni()" class="appearance-none bg-white border border-gray-200 text-udinus-navy py-3 pl-5 pr-12 rounded-xl shadow-sm focus:outline-none focus:border-udinus-gold focus:ring-1 focus:ring-udinus-gold font-bold text-base cursor-pointer hover:border-gray-300 transition duration-300 w-full text-center">
+                        <option value="semua">Semua Angkatan</option>
+                        <?php foreach ($angkatanUnik as $angkatan): ?>
+                            <option value="<?php echo htmlspecialchars($angkatan); ?>">Angkatan <?php echo htmlspecialchars($angkatan); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </div>
+                </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" id="grid-alumni">
 
                 <?php if (empty($daftarAlumni)): ?>
                     <div class="col-span-full text-center py-12 text-gray-400 font-semibold bg-white rounded-3xl border border-gray-100 shadow-sm">
@@ -126,7 +173,7 @@ try {
                 <?php else: ?>
 
                     <?php foreach ($daftarAlumni as $alumni): ?>
-                        <a href="detail-alumni.php?id=<?php echo htmlspecialchars($alumni['id']); ?>" class="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-2xl transition duration-500 relative group overflow-hidden flex flex-col hover:-translate-y-2 cursor-pointer z-10">
+                        <a href="detail-alumni.php?id=<?php echo htmlspecialchars($alumni['id']); ?>" class="kartu-alumni bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-2xl transition duration-500 relative group overflow-hidden flex flex-col hover:-translate-y-2 cursor-pointer z-10 animate-[fadeIn_0.5s_ease-in-out]" data-angkatan="<?php echo htmlspecialchars($alumni['angkatan']); ?>">
 
                             <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-udinus-navy/5 to-transparent rounded-bl-full -z-10 group-hover:scale-125 transition duration-700"></div>
 
@@ -142,8 +189,8 @@ try {
                                 <div class="w-24 h-24 rounded-full overflow-hidden mb-4 border-4 border-white shadow-lg group-hover:border-udinus-gold transition duration-500 relative bg-gray-200">
                                     <img src="<?php echo htmlspecialchars($fotoUrl); ?>" alt="Foto Alumni" class="w-full h-full object-cover">
                                 </div>
-                                <span class="bg-udinus-navy text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider absolute top-0 -right-2 shadow-md border border-white">
-                                    Agt. <?php echo htmlspecialchars($alumni['angkatan']); ?>
+                                <span class="bg-udinus-navy text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider absolute -top-2 -right-3 shadow-md border border-white">
+                                    Angkatan <?php echo htmlspecialchars($alumni['angkatan']); ?>
                                 </span>
 
                                 <h3 class="font-extrabold text-gray-900 text-lg leading-tight group-hover:text-udinus-navy transition duration-300 line-clamp-1 w-full" title="<?php echo htmlspecialchars($alumni['nama_lengkap']); ?>">
@@ -152,7 +199,7 @@ try {
                             </div>
 
                             <div class="mb-5 text-center flex-grow flex flex-col justify-center">
-                                <p class="text-udinus-navy font-bold text-sm mb-1"><?php echo htmlspecialchars($alumni['jabatan_sekarang'] ?? 'Alumni'); ?></p>
+                                <p class="text-udinus-navy font-bold text-sm mb-1"><?php echo htmlspecialchars($alumni['jabatan_sekarang'] ?? 'Alumni Terdaftar'); ?></p>
                                 <p class="text-gray-500 font-semibold text-xs"><?php echo htmlspecialchars($alumni['perusahaan_sekarang'] ?? '-'); ?></p>
                             </div>
 
@@ -173,10 +220,21 @@ try {
 
                 <?php endif; ?>
 
+                <!-- Tampilan Jika Filter Kosong (Dikendalikan oleh JS) -->
+                <div id="empty-state" class="hidden col-span-full bg-white rounded-3xl border border-gray-100 p-12 text-center shadow-sm">
+                    <div class="w-16 h-16 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                    </div>
+                    <p class="text-gray-500 font-semibold">Tidak ada alumni yang ditemukan pada angkatan yang Anda pilih.</p>
+                </div>
+
             </div>
         </div>
     </section>
 
+    <!-- ================= FOOTER ================= -->
     <section class="py-24 bg-udinus-navy relative overflow-hidden">
         <div class="absolute inset-0 z-0 opacity-10" style="background-image: radial-gradient(#E5A712 1px, transparent 1px); background-size: 30px 30px;"></div>
         <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-udinus-gold rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
@@ -255,11 +313,39 @@ try {
 
             <div class="border-t border-gray-800 pt-8 text-center md:flex md:justify-between md:items-center">
                 <p class="text-sm text-gray-500 font-medium mb-4 md:mb-0">&copy; 2026 Program Studi Sistem Informasi UDINUS. All rights reserved.</p>
+                <div class="flex justify-center gap-6 text-sm font-medium text-gray-500">
+                    <a href="#" class="hover:text-white transition duration-300">Privacy Policy</a>
+                    <a href="#" class="hover:text-white transition duration-300">Terms of Service</a>
+                </div>
             </div>
         </div>
     </footer>
 
     <script>
+        // Logika Dinamis Pencarian / Filter Angkatan
+        function filterAlumni() {
+            let filterValue = document.getElementById('filter-angkatan').value;
+            let cards = document.querySelectorAll('.kartu-alumni');
+            let hasVisible = false;
+
+            cards.forEach(card => {
+                let angkatan = card.getAttribute('data-angkatan');
+
+                if (filterValue === 'semua' || angkatan === filterValue) {
+                    card.style.display = 'flex';
+                    hasVisible = true;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            // Logika menampilkan atau menyembunyikan "Empty State"
+            let emptyState = document.getElementById('empty-state');
+            if (emptyState) {
+                emptyState.style.display = hasVisible ? 'none' : 'block';
+            }
+        }
+
         // Hamburger Menu Logic
         const btnMobile = document.getElementById('btn-mobile');
         const menuMobile = document.getElementById('menu-mobile');

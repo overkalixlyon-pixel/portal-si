@@ -38,7 +38,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Informasi UDINUS | Profil Prodi</title>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
 
     <style>
@@ -131,7 +131,7 @@ try {
             </button>
         </div>
 
-        <div id="menu-mobile" class="hidden md:hidden bg-white border-t border-gray-100 px-6 py-4 flex-col gap-4 font-semibold shadow-lg absolute w-full">
+        <div id="menu-mobile" class="hidden md:hidden bg-white border-t border-gray-100 px-6 py-4 flex-col gap-4 font-semibold shadow-lg absolute w-full z-40">
             <a href="index.php" class="block text-udinus-navy hover:text-udinus-gold">Beranda</a>
             <a href="profil.php" class="block text-udinus-gold">Profil</a>
             <a href="prestasi.php" class="block text-udinus-navy hover:text-udinus-gold">Prestasi</a>
@@ -166,45 +166,90 @@ try {
         </div>
     </section>
 
-    <!-- ================= VISI & MISI SECTION ================= -->
-    <section class="py-20 bg-white">
-        <div class="container mx-auto px-6 max-w-4xl">
+    <!-- ================= VISI, MISI & AKREDITASI SECTION ================= -->
+    <section class="py-24 bg-white relative">
+        <div class="container mx-auto px-6 max-w-5xl">
 
-            <!-- Pengaturan Tab Hanya Tinggal Visi & Misi -->
-            <div class="flex flex-wrap justify-center border-b-2 border-gray-100 mb-12 gap-2 md:gap-8">
-                <button onclick="bukaTab(event, 'tab-visi')" class="tab-btn px-6 py-4 text-base md:text-lg font-bold border-b-4 border-udinus-gold text-udinus-navy transition duration-300" id="btn-default">VISI PRODI</button>
-                <button onclick="bukaTab(event, 'tab-misi')" class="tab-btn px-6 py-4 text-base md:text-lg font-bold border-b-4 border-transparent text-gray-400 hover:text-udinus-navy transition duration-300">MISI PRODI</button>
-            </div>
+            <!-- KOTAK UTAMA (Visi & Misi) -->
+            <div class="bg-gray-50 rounded-[2rem] border border-gray-100 shadow-sm p-8 md:p-14 relative overflow-hidden animate-[fadeIn_0.5s_ease-in-out]">
 
-            <!-- Konten Visi -->
-            <div id="tab-visi" class="tab-konten block text-center animate-[fadeIn_0.5s_ease-in-out]">
-                <div class="w-16 h-16 bg-blue-50 text-udinus-navy rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-blue-100">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                    </svg>
-                </div>
-                <p class="text-2xl md:text-4xl italic text-gray-800 font-semibold leading-relaxed max-w-4xl mx-auto">
-                    "<?php echo htmlspecialchars($konfig['visi_prodi']); ?>"
-                </p>
-            </div>
+                <!-- Dekorasi Background -->
+                <div class="absolute top-0 right-0 w-64 h-64 bg-blue-50/50 rounded-full blur-3xl -z-10 translate-x-1/3 -translate-y-1/3"></div>
+                <div class="absolute bottom-0 left-0 w-64 h-64 bg-yellow-50/50 rounded-full blur-3xl -z-10 -translate-x-1/3 translate-y-1/3"></div>
 
-            <!-- Konten Misi -->
-            <div id="tab-misi" class="tab-konten hidden animate-[fadeIn_0.5s_ease-in-out]">
-                <div class="bg-gray-50 rounded-3xl p-8 md:p-12 border border-gray-100 shadow-sm">
-                    <h3 class="text-2xl font-bold text-udinus-navy mb-6 flex items-center gap-3">
-                        <svg class="w-6 h-6 text-udinus-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        Misi Program Studi
-                    </h3>
-                    <div class="text-gray-700 text-lg leading-relaxed font-medium text-justify">
-                        <!-- Teks misi dari DB sudah memakai <br> sehingga akan tercetak dengan rapi -->
-                        <?php echo $konfig['misi_prodi']; ?>
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-12">
+
+                    <!-- Sisi Kiri (Konten Teks Visi Misi) -->
+                    <div class="md:col-span-8 md:pr-8">
+
+                        <!-- VISI -->
+                        <div class="mb-12 relative">
+                            <div class="flex items-center gap-4 mb-4">
+                                <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center shadow-sm">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                </div>
+                                <h2 class="text-2xl font-extrabold text-udinus-navy">Visi Akademik</h2>
+                            </div>
+                            <p class="text-xl md:text-2xl text-gray-800 font-semibold leading-relaxed italic border-l-4 border-udinus-gold pl-5">
+                                "<?php echo htmlspecialchars($konfig['visi_prodi']); ?>"
+                            </p>
+                        </div>
+
+                        <!-- MISI -->
+                        <div>
+                            <div class="flex items-center gap-4 mb-5">
+                                <div class="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-xl flex items-center justify-center shadow-sm">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                </div>
+                                <h2 class="text-2xl font-extrabold text-udinus-navy">Misi Program Studi</h2>
+                            </div>
+                            <div class="text-gray-600 text-base leading-relaxed font-medium text-justify">
+                                <!-- Teks misi dari DB memakai nl2br agar format baris terjaga -->
+                                <?php echo nl2br(htmlspecialchars($konfig['misi_prodi'])); ?>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Sisi Kanan (Akreditasi & Dokumen) -->
+                    <div class="md:col-span-4 border-t md:border-t-0 md:border-l border-gray-200 pt-8 md:pt-0 md:pl-8 flex flex-col justify-start">
+
+                        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Legalitas & Mutu</h3>
+
+                        <!-- Badge Akreditasi -->
+                        <div class="bg-white border border-gray-100 p-6 rounded-2xl shadow-sm text-center mb-6">
+                            <div class="inline-flex h-16 w-16 bg-green-50 text-green-500 rounded-full items-center justify-center mb-4 ring-4 ring-green-50/50">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                </svg>
+                            </div>
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Status Terkini</p>
+                            <p class="text-xl font-extrabold text-gray-900"><?php echo htmlspecialchars($konfig['sk_akreditasi']); ?></p>
+                        </div>
+
+                        <!-- Tombol Unduh Sertifikat -->
+                        <?php if (!empty($konfig['file_sertifikat_pdf']) && $konfig['file_sertifikat_pdf'] !== '#'): ?>
+                            <a href="assets/<?php echo htmlspecialchars($konfig['file_sertifikat_pdf']); ?>" target="_blank" class="w-full bg-udinus-navy hover:bg-blue-900 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition duration-300 shadow-md group">
+                                <svg class="w-5 h-5 group-hover:-translate-y-1 transition transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                Unduh Sertifikat PDF
+                            </a>
+                        <?php else: ?>
+                            <div class="w-full bg-gray-100 text-gray-400 font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed">
+                                Sertifikat Belum Tersedia
+                            </div>
+                        <?php endif; ?>
+
                     </div>
                 </div>
-            </div>
 
+            </div>
         </div>
     </section>
 
@@ -217,61 +262,111 @@ try {
                     Pimpinan & Staf Pengajar
                 </span>
                 <h2 class="text-3xl md:text-4xl font-extrabold text-udinus-navy mb-4 tracking-tight">Jajaran Akademik</h2>
-                <p class="text-gray-600 max-w-2xl mx-auto text-lg">Dibimbing langsung oleh para pakar, peneliti, dan praktisi industri yang berdedikasi tinggi mencetak talenta digital.</p>
+                <p class="text-gray-600 max-w-2xl mx-auto text-lg font-medium">Dibimbing langsung oleh para pakar, peneliti, dan praktisi industri yang berdedikasi tinggi mencetak talenta digital.</p>
             </div>
 
             <?php if ($kaprodi): ?>
                 <div class="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden mb-16 max-w-5xl mx-auto flex flex-col md:flex-row group hover:shadow-2xl transition duration-500">
                     <div class="w-full md:w-2/5 h-96 md:h-auto relative overflow-hidden bg-gray-200">
-                        <!-- Foto Pak Amiq dari Database -->
-                        <img src="assets/images/<?php echo htmlspecialchars($kaprodi['foto_dosen']); ?>" alt="<?php echo htmlspecialchars($kaprodi['nama_dosen']); ?>" class="w-full h-full object-cover object-top group-hover:scale-105 transition duration-700">
-                        <div class="absolute inset-0 bg-gradient-to-t from-udinus-navy/80 via-transparent to-transparent opacity-80"></div>
-                        <div class="absolute bottom-6 left-6 right-6">
-                            <h3 class="text-2xl font-extrabold text-white shadow-sm mb-1"><?php echo htmlspecialchars($kaprodi['nama_dosen']); ?></h3>
-                            <span class="bg-udinus-gold text-white text-xs font-bold px-3 py-1 rounded-full shadow-md inline-block"><?php echo htmlspecialchars($kaprodi['jabatan_akademik']); ?></span>
-                        </div>
-                    </div>
-                    <div class="w-full md:w-3/5 p-8 md:p-12 flex flex-col justify-center bg-white relative">
-                        <svg class="absolute top-8 right-8 w-16 h-16 text-gray-50 -z-10" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
-                        </svg>
+                        <!-- LINK PORTAL DINAMIS UNTUK KAPRODI -->
+                        <?php if (!empty($kaprodi['link_portal'])): ?>
+                            <a href="<?php echo htmlspecialchars($kaprodi['link_portal']); ?>" target="_blank" class="block w-full h-full relative cursor-pointer">
+                            <?php else: ?>
+                                <div class="w-full h-full relative">
+                                <?php endif; ?>
 
-                        <!-- Kotak Sambutan dengan Custom Scrollbar agar rapi -->
-                        <div class="text-gray-600 text-base leading-relaxed space-y-4 text-justify relative z-10 font-medium h-[22rem] md:h-[26rem] overflow-y-auto pr-4 custom-scrollbar">
-                            <?php echo nl2br(htmlspecialchars($kaprodi['sambutan_teks'])); ?>
-                        </div>
+                                <img src="assets/images/<?php echo htmlspecialchars($kaprodi['foto_dosen']); ?>" alt="<?php echo htmlspecialchars($kaprodi['nama_dosen']); ?>" class="w-full h-full object-cover object-top group-hover:scale-105 transition duration-700">
+
+                                <!-- Efek Hover Overlay Link (Tampil Jika Link Ada) -->
+                                <?php if (!empty($kaprodi['link_portal'])): ?>
+                                    <div class="absolute inset-0 bg-blue-900/60 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center z-20">
+                                        <span class="bg-white text-udinus-navy px-4 py-2 rounded-full font-bold text-sm shadow-lg flex items-center gap-2">
+                                            Lihat Portal <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                            </svg>
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
+
+                                <div class="absolute inset-0 bg-gradient-to-t from-udinus-navy/90 via-udinus-navy/20 to-transparent opacity-90 z-10"></div>
+
+                                <div class="absolute bottom-6 left-6 right-6 z-20 pointer-events-none">
+                                    <h3 class="text-2xl font-extrabold text-white shadow-sm mb-1"><?php echo htmlspecialchars($kaprodi['nama_dosen']); ?></h3>
+                                    <span class="bg-udinus-gold text-white text-xs font-bold px-3 py-1 rounded-full shadow-md inline-block"><?php echo htmlspecialchars($kaprodi['jabatan_akademik']); ?></span>
+                                </div>
+
+                                <?php if (!empty($kaprodi['link_portal'])): ?>
+                            </a>
+                        <?php else: ?>
+                    </div>
+                <?php endif; ?>
+                </div>
+
+                <div class="w-full md:w-3/5 p-8 md:p-12 flex flex-col justify-center bg-white relative">
+                    <svg class="absolute top-8 right-8 w-16 h-16 text-gray-50 -z-10" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
+                    </svg>
+
+                    <!-- Kotak Sambutan dengan Custom Scrollbar agar rapi -->
+                    <div class="text-gray-600 text-base leading-relaxed space-y-4 text-justify relative z-10 font-medium h-[22rem] md:h-[26rem] overflow-y-auto pr-4 custom-scrollbar">
+                        <?php echo nl2br(htmlspecialchars($kaprodi['sambutan_teks'])); ?>
                     </div>
                 </div>
-            <?php endif; ?>
+        </div>
+    <?php endif; ?>
 
-            <!-- Daftar Dosen Lainnya (Grid 5 Kolom/Bebas Menyesuaikan) -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 max-w-6xl mx-auto">
-                <?php if (empty($daftarDosen)): ?>
-                    <div class="col-span-full text-center py-8 text-gray-400 font-semibold">
-                        Belum ada data staf pengajar reguler.
-                    </div>
-                <?php else: ?>
-                    <?php foreach ($daftarDosen as $dosen): ?>
+    <!-- Daftar Dosen Lainnya (Grid 5 Kolom) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 max-w-6xl mx-auto">
+        <?php if (empty($daftarDosen)): ?>
+            <div class="col-span-full text-center py-8 text-gray-400 font-semibold">
+                Belum ada data staf pengajar reguler.
+            </div>
+        <?php else: ?>
+            <?php foreach ($daftarDosen as $dosen): ?>
+
+                <!-- Pengecekan Jika Link Portal Ada Maka Gunakan Tag <a> -->
+                <?php if (!empty($dosen['link_portal'])): ?>
+                    <a href="<?php echo htmlspecialchars($dosen['link_portal']); ?>" target="_blank" class="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition duration-500 hover:-translate-y-2 group flex flex-col border border-gray-100 cursor-pointer block">
+                    <?php else: ?>
                         <div class="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition duration-500 hover:-translate-y-2 group flex flex-col border border-gray-100">
-                            <div class="w-full h-56 overflow-hidden bg-gray-200 relative">
-                                <img src="assets/images/<?php echo htmlspecialchars($dosen['foto_dosen']); ?>" alt="Foto Dosen" class="w-full h-full object-cover object-top group-hover:scale-110 transition duration-700">
-                                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition duration-300"></div>
-                            </div>
-                            <div class="p-5 text-center flex flex-col flex-grow relative bg-white">
-                                <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-udinus-gold rounded-full"></div>
-                                <h3 class="text-sm font-bold text-gray-900 mb-1 leading-tight line-clamp-2"><?php echo htmlspecialchars($dosen['nama_dosen']); ?></h3>
-                                <p class="text-udinus-navy font-bold text-[10px] uppercase tracking-wider mb-3"><?php echo htmlspecialchars($dosen['jabatan_akademik']); ?></p>
-                                <div class="w-full border-t border-gray-100 pt-3 mt-auto">
-                                    <p class="text-gray-400 text-xs font-medium mb-1">Spesialisasi:</p>
-                                    <p class="text-gray-700 text-xs font-bold leading-tight" title="<?php echo htmlspecialchars($dosen['kepakaran']); ?>"><?php echo htmlspecialchars($dosen['kepakaran']); ?></p>
+                        <?php endif; ?>
+
+                        <div class="w-full h-56 overflow-hidden bg-gray-200 relative">
+                            <img src="assets/images/<?php echo htmlspecialchars($dosen['foto_dosen']); ?>" alt="Foto Dosen" class="w-full h-full object-cover object-top group-hover:scale-110 transition duration-700">
+
+                            <!-- Efek Hover Gambar Jika Ada Link Portal -->
+                            <?php if (!empty($dosen['link_portal'])): ?>
+                                <div class="absolute inset-0 bg-blue-900/60 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center z-10">
+                                    <svg class="w-8 h-8 text-white shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                    </svg>
                                 </div>
+                            <?php else: ?>
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition duration-300"></div>
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="p-5 text-center flex flex-col flex-grow relative bg-white">
+                            <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-udinus-gold rounded-full"></div>
+                            <h3 class="text-sm font-bold text-gray-900 mb-1 leading-tight line-clamp-2 group-hover:text-udinus-navy transition"><?php echo htmlspecialchars($dosen['nama_dosen']); ?></h3>
+                            <p class="text-udinus-navy font-bold text-[10px] uppercase tracking-wider mb-3 group-hover:text-udinus-gold transition"><?php echo htmlspecialchars($dosen['jabatan_akademik']); ?></p>
+                            <div class="w-full border-t border-gray-100 pt-3 mt-auto">
+                                <p class="text-gray-400 text-xs font-medium mb-1">Spesialisasi:</p>
+                                <p class="text-gray-700 text-xs font-bold leading-tight line-clamp-2" title="<?php echo htmlspecialchars($dosen['kepakaran']); ?>"><?php echo htmlspecialchars($dosen['kepakaran']); ?></p>
                             </div>
                         </div>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </div>
 
-        </div>
+                        <?php if (!empty($dosen['link_portal'])): ?>
+                    </a>
+                <?php else: ?>
+    </div>
+<?php endif; ?>
+
+<?php endforeach; ?>
+<?php endif; ?>
+</div>
+
+</div>
     </section>
 
     <!-- ================= FOOTER SECTION (KONSISTEN) ================= -->
@@ -326,30 +421,15 @@ try {
 
             <div class="border-t border-gray-800 pt-8 text-center md:flex md:justify-between md:items-center">
                 <p class="text-sm text-gray-500 font-medium mb-4 md:mb-0">&copy; 2026 Program Studi Sistem Informasi UDINUS. All rights reserved.</p>
+                <div class="flex justify-center gap-6 text-sm font-medium text-gray-500">
+                    <a href="#" class="hover:text-white transition duration-300">Privacy Policy</a>
+                    <a href="#" class="hover:text-white transition duration-300">Terms of Service</a>
+                </div>
             </div>
         </div>
     </footer>
 
     <script>
-        // Logika Tab Visi Misi yang disederhanakan
-        function bukaTab(evt, namaTab) {
-            let i, tabKonten, tabBtn;
-            tabKonten = document.getElementsByClassName("tab-konten");
-            for (i = 0; i < tabKonten.length; i++) {
-                tabKonten[i].classList.remove("block");
-                tabKonten[i].classList.add("hidden");
-            }
-            tabBtn = document.getElementsByClassName("tab-btn");
-            for (i = 0; i < tabBtn.length; i++) {
-                tabBtn[i].classList.remove("border-udinus-gold", "text-udinus-navy");
-                tabBtn[i].classList.add("border-transparent", "text-gray-400");
-            }
-            document.getElementById(namaTab).classList.remove("hidden");
-            document.getElementById(namaTab).classList.add("block");
-            evt.currentTarget.classList.remove("border-transparent", "text-gray-400");
-            evt.currentTarget.classList.add("border-udinus-gold", "text-udinus-navy");
-        }
-
         // Hamburger Menu Logic
         const btnMobile = document.getElementById('btn-mobile');
         const menuMobile = document.getElementById('menu-mobile');

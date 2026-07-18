@@ -13,8 +13,8 @@ if (empty($session_id) || $session_role !== 'admin') {
 
 require_once 'config/koneksi.php';
 
-$pesan_sukses = "";
 $pesan_error = "";
+$pesan_sukses = "";
 
 // =========================================================================
 // PENGATURAN NAMA TAMPILAN BERDASARKAN USER LOGIN
@@ -28,98 +28,48 @@ if (strpos($username_login, 'kaprodi') !== false) {
     $nama_tampilan = "Sekretariat Prodi";
 }
 
-try {
-    // 2. Mengambil data konfigurasi saat ini untuk ditampilkan di form (Pre-fill)
-    $queryKonfig = $koneksi->prepare("SELECT * FROM tabel_konfigurasi_prodi WHERE id = 1");
-    $queryKonfig->execute();
-    $konfigSaatIni = $queryKonfig->fetch();
+// =========================================================================
+// PROSES GANTI PASSWORD
+// =========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $password_lama = $_POST['password_lama'] ?? '';
+    $password_baru = $_POST['password_baru'] ?? '';
+    $konfirmasi_password = $_POST['konfirmasi_password'] ?? '';
 
-    // Jika entah bagaimana data id=1 terhapus, kita siapkan variabel kosong untuk menghindari error
-    if (!$konfigSaatIni) {
-        $konfigSaatIni = [
-            'visi_prodi' => '',
-            'misi_prodi' => '',
-            'sk_akreditasi' => '',
-            'file_sertifikat_pdf' => ''
-        ];
-    }
+    // Validasi input
+    if (empty($password_lama) || empty($password_baru) || empty($konfirmasi_password)) {
+        $pesan_error = "Semua kolom wajib diisi!";
+    } elseif ($password_baru !== $konfirmasi_password) {
+        $pesan_error = "Password baru dan konfirmasi password tidak cocok!";
+    } elseif (strlen($password_baru) < 6) {
+        $pesan_error = "Password baru minimal terdiri dari 6 karakter!";
+    } else {
+        try {
+            // Ambil hash password lama dari database
+            $stmt = $koneksi->prepare("SELECT password FROM tabel_users WHERE id = ? AND role = 'admin'");
+            $stmt->execute([$session_id]);
+            $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // 3. Proses Pembaruan Data (Metode POST)
-    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+            if ($admin && password_verify($password_lama, $admin['password'])) {
+                // Hash password baru
+                $password_baru_hash = password_hash($password_baru, PASSWORD_DEFAULT);
 
-        $visi_prodi    = htmlspecialchars(trim($_POST['visi_prodi']));
-        // Untuk misi, kita biarkan newline (\n) agar bisa di-format dengan nl2br() di halaman profil.php
-        $misi_prodi    = htmlspecialchars(trim($_POST['misi_prodi']));
-        $sk_akreditasi = htmlspecialchars(trim($_POST['sk_akreditasi']));
-
-        $nama_file_baru = $konfigSaatIni['file_sertifikat_pdf'];
-        $upload_sukses = false;
-
-        // --- Logika Upload PDF Surat Keputusan (SK) ---
-        if (isset($_FILES['file_sertifikat']) && $_FILES['file_sertifikat']['error'] !== 4) {
-            $nama_file   = $_FILES['file_sertifikat']['name'];
-            $ukuran_file = $_FILES['file_sertifikat']['size'];
-            $tmp_name    = $_FILES['file_sertifikat']['tmp_name'];
-
-            $ekstensi_valid = ['pdf'];
-            $ekstensi_file  = explode('.', $nama_file);
-            $ekstensi_file  = strtolower(end($ekstensi_file));
-
-            if (!in_array($ekstensi_file, $ekstensi_valid)) {
-                throw new Exception("File sertifikat ditolak! Format wajib menggunakan ekstensi PDF.");
-            }
-            if ($ukuran_file > 5000000) { // Limit 5MB untuk Dokumen PDF
-                throw new Exception("Ukuran dokumen PDF terlalu besar. Maksimal 5MB.");
-            }
-
-            // Pastikan folder assets/ ada
-            if (!is_dir('assets/')) {
-                mkdir('assets/', 0777, true);
-            }
-
-            // Generate nama file acak
-            $nama_file_baru = uniqid('sk_akreditasi_') . '.' . $ekstensi_file;
-            move_uploaded_file($tmp_name, 'assets/' . $nama_file_baru);
-            $upload_sukses = true;
-
-            // Hapus PDF lama jika ada dan bukan bawaan default
-            if (!empty($konfigSaatIni['file_sertifikat_pdf']) && $konfigSaatIni['file_sertifikat_pdf'] != 'sertifikat-akreditasi.pdf') {
-                $path_lama = 'assets/' . $konfigSaatIni['file_sertifikat_pdf'];
-                if (file_exists($path_lama)) {
-                    unlink($path_lama);
+                // Update ke database
+                $stmtUpdate = $koneksi->prepare("UPDATE tabel_users SET password = ? WHERE id = ?");
+                if ($stmtUpdate->execute([$password_baru_hash, $session_id])) {
+                    $pesan_sukses = "Password berhasil diubah! Silakan gunakan password baru pada saat login berikutnya.";
+                } else {
+                    $pesan_error = "Gagal memperbarui password di database. Silakan coba lagi.";
                 }
+            } else {
+                $pesan_error = "Password lama yang Anda masukkan salah!";
             }
-        }
-
-        // Eksekusi Update ke Database (Data Konfigurasi Selalu id = 1)
-        $sqlUpdate = "UPDATE tabel_konfigurasi_prodi SET
-                      admin_id = :admin_id,
-                      visi_prodi = :visi,
-                      misi_prodi = :misi,
-                      sk_akreditasi = :sk,
-                      file_sertifikat_pdf = :pdf
-                      WHERE id = 1";
-
-        $stmtUpdate = $koneksi->prepare($sqlUpdate);
-        $berhasil = $stmtUpdate->execute([
-            ':admin_id' => $session_id, // Gunakan variabel sesi yang aman
-            ':visi'     => $visi_prodi,
-            ':misi'     => $misi_prodi,
-            ':sk'       => $sk_akreditasi,
-            ':pdf'      => $nama_file_baru
-        ]);
-
-        if ($berhasil) {
-            $pesan_sukses = "Konfigurasi sistem berhasil diperbarui dan diterapkan ke seluruh halaman publik!";
-            // Segarkan data
-            $queryKonfig->execute();
-            $konfigSaatIni = $queryKonfig->fetch();
+        } catch (PDOException $e) {
+            $pesan_error = "Terjadi kesalahan pada sistem database: " . $e->getMessage();
+        } catch (Exception $e) {
+            $pesan_error = "Terjadi kesalahan sistem: " . $e->getMessage();
         }
     }
-} catch (Exception $e) {
-    $pesan_error = $e->getMessage();
-} catch (PDOException $e) {
-    $pesan_error = "Kesalahan Sistem Database: " . $e->getMessage();
 }
 ?>
 <!DOCTYPE html>
@@ -128,7 +78,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Konfigurasi Sistem Prodi | SI UDINUS</title>
+    <title>Ganti Password Admin | SI UDINUS</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -150,7 +100,6 @@ try {
 
 <body class="bg-gray-50 font-sans antialiased flex h-screen overflow-hidden text-gray-800 selection:bg-udinus-gold selection:text-white relative">
 
-    <!-- OVERLAY UNTUK SIDEBAR MOBILE -->
     <div id="sidebar-overlay" class="fixed inset-0 bg-gray-900/50 z-40 hidden md:hidden transition-opacity backdrop-blur-sm"></div>
 
     <!-- SIDEBAR -->
@@ -164,7 +113,6 @@ try {
                 </div>
                 <span class="font-bold tracking-wider uppercase text-sm text-white">Admin Pusat</span>
             </div>
-            <!-- TOMBOL CLOSE SIDEBAR MOBILE -->
             <button id="btn-close-sidebar" class="md:hidden text-gray-400 hover:text-white focus:outline-none">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -202,13 +150,12 @@ try {
                     </a>
                 </li>
                 <li>
-                    <!-- MENU AKTIF -->
-                    <a href="admin-konfigurasi.php" class="flex flex-row items-center h-11 text-white bg-gray-800 rounded-xl px-4 transition duration-300 border border-gray-700/50 shadow-inner">
-                        <svg class="w-5 h-5 text-udinus-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <a href="admin-konfigurasi.php" class="flex flex-row items-center h-11 text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl px-4 transition duration-300">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                         </svg>
-                        <span class="ml-3 text-sm font-bold tracking-wide">Konfigurasi Prodi</span>
+                        <span class="ml-3 text-sm font-medium tracking-wide">Konfigurasi Prodi</span>
                     </a>
                 </li>
             </ul>
@@ -241,7 +188,7 @@ try {
                     <svg class="w-4 h-4 text-gray-400 hidden sm:inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                     </svg>
-                    <span class="text-gray-800 font-extrabold tracking-tight">Konfigurasi Sistem Utama</span>
+                    <span class="text-gray-800 font-extrabold tracking-tight">Ganti Password</span>
                 </div>
             </div>
 
@@ -253,7 +200,6 @@ try {
                         <div class="flex items-center justify-end gap-1.5 mt-0.5">
                             <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                             <p class="text-[10px] text-gray-500 font-bold tracking-widest uppercase">Setelan Akun</p>
-                            <!-- Ikon Chevron -->
                             <svg class="w-3 h-3 text-gray-400 group-hover:text-gray-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                             </svg>
@@ -287,111 +233,78 @@ try {
             </div>
         </header>
 
-        <main class="flex-1 overflow-x-hidden overflow-y-auto p-6 md:p-10 flex flex-col items-center">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto p-6 md:p-10 flex justify-center items-start">
 
-            <div class="w-full max-w-5xl">
+            <div class="w-full max-w-xl">
+                <!-- NOTIFIKASI ERROR -->
                 <?php if (!empty($pesan_error)): ?>
-                    <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-8 rounded-xl font-semibold shadow-sm flex items-center gap-3">
+                    <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-xl font-semibold shadow-sm flex items-center gap-3">
                         <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        <?php echo $pesan_error; ?>
+                        <?php echo htmlspecialchars($pesan_error); ?>
                     </div>
                 <?php endif; ?>
 
+                <!-- NOTIFIKASI SUKSES -->
                 <?php if (!empty($pesan_sukses)): ?>
-                    <div class="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 mb-8 rounded-xl font-semibold shadow-sm flex items-center gap-3">
+                    <div class="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded-xl font-semibold shadow-sm flex items-center gap-3">
                         <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        <?php echo $pesan_sukses; ?>
+                        <?php echo htmlspecialchars($pesan_sukses); ?>
                     </div>
                 <?php endif; ?>
 
-                <div class="mb-8">
-                    <h1 class="text-2xl font-extrabold text-gray-900 mb-2">Parameter Global Program Studi</h1>
-                    <p class="text-gray-500 font-medium">Perubahan pada elemen di bawah ini akan secara langsung berdampak (real-time) pada halaman Publik Beranda dan Profil.</p>
+                <!-- KARTU FORM -->
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div class="p-6 border-b border-gray-100 bg-gray-50/50">
+                        <h2 class="text-xl font-extrabold text-gray-900">Perbarui Password Akun</h2>
+                        <p class="text-sm text-gray-500 mt-1">Pastikan Anda menggunakan kombinasi password yang kuat untuk keamanan sistem.</p>
+                    </div>
+
+                    <form action="admin-ganti-password.php" method="POST" class="p-6 space-y-5">
+
+                        <!-- Input Password Lama -->
+                        <div>
+                            <label for="password_lama" class="block text-sm font-bold text-gray-700 mb-2">Password Saat Ini</label>
+                            <input type="password" id="password_lama" name="password_lama" required
+                                class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                                placeholder="Masukkan password lama Anda">
+                        </div>
+
+                        <hr class="border-gray-100">
+
+                        <!-- Input Password Baru -->
+                        <div>
+                            <label for="password_baru" class="block text-sm font-bold text-gray-700 mb-2">Password Baru</label>
+                            <input type="password" id="password_baru" name="password_baru" required
+                                class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                                placeholder="Minimal 6 karakter">
+                        </div>
+
+                        <!-- Konfirmasi Password Baru -->
+                        <div>
+                            <label for="konfirmasi_password" class="block text-sm font-bold text-gray-700 mb-2">Konfirmasi Password Baru</label>
+                            <input type="password" id="konfirmasi_password" name="konfirmasi_password" required
+                                class="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                                placeholder="Ulangi password baru">
+                        </div>
+
+                        <div class="pt-4 flex items-center justify-between">
+                            <a href="admin-dashboard.php" class="text-sm font-bold text-gray-500 hover:text-gray-800 transition">Batal</a>
+                            <button type="submit" class="bg-udinus-navy hover:bg-blue-900 text-white font-bold py-2.5 px-6 rounded-xl shadow-md transition transform hover:-translate-y-0.5">
+                                Simpan Password Baru
+                            </button>
+                        </div>
+                    </form>
                 </div>
-
-                <form action="admin-konfigurasi.php" method="POST" enctype="multipart/form-data" class="space-y-8 pb-10">
-
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div class="bg-gray-50/50 border-b border-gray-100 p-6 flex items-center gap-3">
-                            <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path>
-                                </svg>
-                            </div>
-                            <h2 class="text-lg font-extrabold text-gray-800">Arah Gerak: Visi & Misi Akademik</h2>
-                        </div>
-
-                        <div class="p-8 space-y-6">
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-2">Pernyataan Visi Utama</label>
-                                <textarea name="visi_prodi" rows="3" required placeholder="Tuliskan Visi Program Studi..." class="w-full px-5 py-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-udinus-navy resize-none bg-gray-50 focus:bg-white transition text-gray-800 font-medium leading-relaxed"><?php echo htmlspecialchars($konfigSaatIni['visi_prodi']); ?></textarea>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-2">Penjabaran Misi Akademik</label>
-                                <textarea name="misi_prodi" rows="6" required placeholder="Tuliskan Misi Program Studi..." class="w-full px-5 py-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-udinus-navy resize-none bg-gray-50 focus:bg-white transition text-gray-800 font-medium leading-relaxed"><?php
-                                                                                                                                                                                                                                                                                                                                        // Mereplace <br> tag dari database menjadi newline untuk ditampilkan di textarea secara rapi
-                                                                                                                                                                                                                                                                                                                                        $misi_clean = str_replace(['<br>', '<br/>', '<br />'], "\n", $konfigSaatIni['misi_prodi']);
-                                                                                                                                                                                                                                                                                                                                        echo htmlspecialchars($misi_clean);
-                                                                                                                                                                                                                                                                                                                                        ?></textarea>
-                                <p class="text-[11px] text-gray-500 mt-2 font-semibold">*Tips: Gunakan tombol <kbd class="bg-gray-100 border border-gray-300 px-1.5 py-0.5 rounded text-gray-600">Enter</kbd> untuk membuat pemisah (paragraf baru) antar poin misi.</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div class="bg-gray-50/50 border-b border-gray-100 p-6 flex items-center gap-3">
-                            <div class="w-10 h-10 bg-yellow-100 text-yellow-600 rounded-lg flex items-center justify-center">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                                </svg>
-                            </div>
-                            <h2 class="text-lg font-extrabold text-gray-800">Legalitas & Status Akreditasi</h2>
-                        </div>
-
-                        <div class="p-8 space-y-6">
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <div>
-                                    <label class="block text-sm font-bold text-gray-700 mb-2">Teks Status Akreditasi Terkini</label>
-                                    <input type="text" name="sk_akreditasi" required value="<?php echo htmlspecialchars($konfigSaatIni['sk_akreditasi']); ?>" placeholder="Cth: Unggul (A) - BAN PT" class="w-full px-5 py-3.5 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition text-gray-800 font-bold">
-                                    <p class="text-[11px] text-gray-500 mt-2 font-semibold">Teks ini akan dimunculkan di dalam badge (lencana) pada halaman publik Beranda.</p>
-                                </div>
-
-                                <div>
-                                    <label class="block text-sm font-bold text-gray-700 mb-2">Berkas Sertifikat Resmi (PDF)</label>
-                                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-3 flex flex-col justify-center h-[76px]">
-                                        <input type="file" name="file_sertifikat" accept=".pdf" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-white file:text-udinus-navy file:shadow-sm hover:file:bg-gray-100 cursor-pointer">
-                                    </div>
-                                    <div class="flex justify-between items-start mt-2">
-                                        <p class="text-[11px] text-gray-500 font-semibold">*Abaikan kolom ini jika tidak ingin merubah PDF yang sudah ada.</p>
-                                        <?php if (!empty($konfigSaatIni['file_sertifikat_pdf'])): ?>
-                                            <a href="assets/<?php echo htmlspecialchars($konfigSaatIni['file_sertifikat_pdf']); ?>" target="_blank" class="text-xs font-bold text-blue-600 hover:text-blue-800 underline transition shrink-0">Lihat PDF Saat Ini</a>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end gap-4 mt-8 pt-4">
-                        <button type="submit" class="px-10 py-4 rounded-xl bg-gradient-to-r from-udinus-navy to-blue-900 hover:from-blue-900 hover:to-udinus-navy text-white font-extrabold shadow-xl shadow-blue-900/20 transition-all duration-300 hover:-translate-y-1 flex items-center gap-3 text-sm tracking-wide">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            Terapkan Konfigurasi Global
-                        </button>
-                    </div>
-
-                </form>
             </div>
+
         </main>
     </div>
 
-    <!-- JAVASCRIPT -->
+    <!-- Script JavaScript untuk Dropdown dan Sidebar -->
     <script>
         // Logika Sidebar Mobile
         const btnSidebarAdmin = document.getElementById('btn-sidebar-admin');
@@ -410,7 +323,7 @@ try {
             sidebarOverlay.addEventListener('click', toggleSidebar);
         }
 
-        // Logika Dropdown Profil (Ubah Password & Logout)
+        // Logika Dropdown Profil
         const btnProfil = document.getElementById('btn-profil');
         const dropdownProfil = document.getElementById('dropdown-profil');
 

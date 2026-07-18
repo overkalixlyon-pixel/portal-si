@@ -1,45 +1,64 @@
 <?php
-// 1. Memanggil file koneksi database
+// 1. Memulai sesi (opsional jika nanti butuh flash message)
+session_start();
+
+// 2. Memanggil file koneksi database
 require_once 'config/koneksi.php';
 
 $register_berhasil = false;
 $pesan_error = "";
 
-// 2. Memproses form jika metode POST dikirim
+// 3. Memproses form jika metode POST dikirim
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $nim      = htmlspecialchars(trim($_POST['nim']));
-    $email    = htmlspecialchars(trim($_POST['email']));
-    $phone    = htmlspecialchars(trim($_POST['phone']));
+    // Sanitasi input tingkat lanjut
+    $nim      = htmlspecialchars(strip_tags(trim($_POST['nim'])));
+    $email    = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
+    $phone    = htmlspecialchars(strip_tags(trim($_POST['phone'])));
     $password = $_POST['password'];
 
-    try {
-        // Cek apakah NIM atau Email sudah terdaftar
-        $cekUser = $koneksi->prepare("SELECT id FROM tabel_users WHERE username = :nim OR email = :email");
-        $cekUser->execute([':nim' => $nim, ':email' => $email]);
+    // Validasi format email
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $pesan_error = "Format email tidak valid.";
+    } else {
+        try {
+            // Cek apakah NIM atau Email sudah terdaftar
+            $cekUser = $koneksi->prepare("SELECT id FROM tabel_users WHERE username = :nim OR email = :email");
+            $cekUser->execute([':nim' => $nim, ':email' => $email]);
 
-        if ($cekUser->rowCount() > 0) {
-            $pesan_error = "NIM atau Email tersebut telah digunakan oleh akun lain.";
-        } else {
-            // Enkripsi Bcrypt tingkat tinggi
-            $password_aman = password_hash($password, PASSWORD_DEFAULT);
+            if ($cekUser->rowCount() > 0) {
+                $pesan_error = "NIM atau Email tersebut telah digunakan oleh akun lain.";
+            } else {
+                // Enkripsi Bcrypt tingkat tinggi
+                $password_aman = password_hash($password, PASSWORD_DEFAULT);
 
-            $koneksi->beginTransaction();
+                $koneksi->beginTransaction();
 
-            $insertUser = $koneksi->prepare("INSERT INTO tabel_users (username, email, phone, password, role) VALUES (:nim, :email, :phone, :password, 'alumni')");
-            $insertUser->execute([':nim' => $nim, ':email' => $email, ':phone' => $phone, ':password' => $password_aman]);
+                // Insert ke tabel_users
+                $insertUser = $koneksi->prepare("INSERT INTO tabel_users (username, email, phone, password, role) VALUES (:nim, :email, :phone, :password, 'alumni')");
+                $insertUser->execute([
+                    ':nim' => $nim,
+                    ':email' => $email,
+                    ':phone' => $phone,
+                    ':password' => $password_aman
+                ]);
 
-            $id_user_baru = $koneksi->lastInsertId();
+                $id_user_baru = $koneksi->lastInsertId();
 
-            // Auto-Seed Profil Dasar
-            $insertProfil = $koneksi->prepare("INSERT INTO tabel_alumni_profil (user_id, nim, nama_lengkap, angkatan, usia, domisili) VALUES (:user_id, :nim, :nama, '2023', 22, '-')");
-            $insertProfil->execute([':user_id' => $id_user_baru, ':nim' => $nim, ':nama' => "Alumni " . $nim]);
+                // Auto-Seed Profil Dasar
+                $insertProfil = $koneksi->prepare("INSERT INTO tabel_alumni_profil (user_id, nim, nama_lengkap, angkatan, usia, domisili) VALUES (:user_id, :nim, :nama, '2023', 22, '-')");
+                $insertProfil->execute([
+                    ':user_id' => $id_user_baru,
+                    ':nim' => $nim,
+                    ':nama' => "Alumni " . $nim
+                ]);
 
-            $koneksi->commit();
-            $register_berhasil = true;
+                $koneksi->commit();
+                $register_berhasil = true;
+            }
+        } catch (PDOException $e) {
+            $koneksi->rollBack();
+            $pesan_error = "Gagal memproses pendaftaran: " . $e->getMessage();
         }
-    } catch (PDOException $e) {
-        $koneksi->rollBack();
-        $pesan_error = "Gagal memproses pendaftaran: " . $e->getMessage();
     }
 }
 ?>
@@ -95,7 +114,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </a>
 
         <div class="w-full max-w-md mt-16 lg:mt-10">
-
             <div class="lg:hidden w-20 h-20 bg-udinus-gold rounded-2xl flex items-center justify-center mb-8 shadow-lg p-3">
                 <img src="assets/images/logo-udinus.png" alt="Logo" class="w-full h-full object-contain">
             </div>

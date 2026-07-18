@@ -1,43 +1,69 @@
 <?php
-// 1. Memulai manajemen Session di server
 session_start();
+require_once 'config/koneksi.php';
 
-// Jika user sudah dalam kondisi login, langsung alihkan ke dashboard masing-masing
-if (isset($_SESSION['role'])) {
-    if ($_SESSION['role'] == 'admin') {
-        header("Location: admin-dashboard.php");
-        exit();
-    } else {
-        header("Location: dashboard.php");
-        exit();
+// 1. Cek Auto-Login (Remember Me Cookie)
+if (!isset($_SESSION['role_alumni']) && isset($_COOKIE['alumni_remember'])) {
+    $cookie_data = json_decode($_COOKIE['alumni_remember'], true);
+
+    if ($cookie_data && isset($cookie_data['id'], $cookie_data['hash'])) {
+        // Verifikasi token dari database
+        $stmtCookie = $koneksi->prepare("SELECT * FROM tabel_users WHERE id = :id AND role = 'alumni' LIMIT 1");
+        $stmtCookie->execute([':id' => $cookie_data['id']]);
+        $userCookie = $stmtCookie->fetch();
+
+        // Verifikasi hash gabungan username dan password untuk keamanan stateless
+        if ($userCookie) {
+            $valid_hash = hash('sha256', $userCookie['username'] . $userCookie['password']);
+            if (hash_equals($valid_hash, $cookie_data['hash'])) {
+                $_SESSION['user_id_alumni']  = $userCookie['id'];
+                $_SESSION['username_alumni'] = $userCookie['username'];
+                $_SESSION['role_alumni']     = $userCookie['role'];
+
+                header("Location: dashboard.php");
+                exit();
+            }
+        }
     }
 }
 
-// 2. Memanggil file koneksi database
-require_once 'config/koneksi.php';
+// 2. Cek jika sesi alumni sudah ada (Manual Login aktif)
+if (isset($_SESSION['role_alumni'])) {
+    header("Location: dashboard.php");
+    exit();
+}
+
 $pesan_error = "";
 
 // 3. Memproses kiriman data form login
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $nim_email = htmlspecialchars(trim($_POST['nim_email']));
     $password  = $_POST['password'];
+    $remember  = isset($_POST['remember']) ? true : false;
 
     try {
-        // Query mendeteksi user berdasarkan NIM (username) ataupun Email
         $queryUser = $koneksi->prepare("SELECT * FROM tabel_users WHERE username = :input_user OR email = :input_email LIMIT 1");
         $queryUser->execute([':input_user' => $nim_email, ':input_email' => $nim_email]);
         $user = $queryUser->fetch();
 
-        // Verifikasi Keabsahan User & Kata Sandi
         if ($user && password_verify($password, $user['password'])) {
-            $_SESSION['user_id']  = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['role']     = $user['role'];
-
+            // Tolak jika admin yang login di sini
             if ($user['role'] == 'admin') {
-                header("Location: admin-dashboard.php");
-                exit();
+                $pesan_error = "Akun Administrator harap login melalui Portal Admin Pusat.";
             } else {
+                // Set Session Spesifik Alumni
+                $_SESSION['user_id_alumni']  = $user['id'];
+                $_SESSION['username_alumni'] = $user['username'];
+                $_SESSION['role_alumni']     = $user['role'];
+
+                // Jika fitur Remember Me dicentang
+                if ($remember) {
+                    $hash = hash('sha256', $user['username'] . $user['password']);
+                    $cookie_data = json_encode(['id' => $user['id'], 'hash' => $hash]);
+                    // Set cookie untuk 30 hari ke depan
+                    setcookie('alumni_remember', $cookie_data, time() + (86400 * 30), "/");
+                }
+
                 header("Location: dashboard.php");
                 exit();
             }
@@ -103,7 +129,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </a>
 
         <div class="w-full max-w-md mt-10 lg:mt-0">
-
             <div class="lg:hidden w-20 h-20 bg-udinus-navy rounded-2xl flex items-center justify-center mb-8 shadow-lg p-3">
                 <img src="assets/images/logo-udinus.png" alt="Logo" class="w-full h-full object-contain">
             </div>

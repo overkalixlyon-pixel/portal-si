@@ -1,7 +1,12 @@
 <?php
 // 1. Memulai Sesi dan Proteksi Halaman Khusus Admin
 session_start();
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+
+// Menyesuaikan penamaan session (mengatasi potensi perbedaan nama variabel sesi admin)
+$session_role = $_SESSION['role'] ?? ($_SESSION['role_admin'] ?? '');
+$session_id = $_SESSION['user_id'] ?? ($_SESSION['user_id_admin'] ?? '');
+
+if (empty($session_id) || $session_role !== 'admin') {
     header("Location: login-admin.php");
     exit();
 }
@@ -10,6 +15,18 @@ require_once 'config/koneksi.php';
 
 $pesan_sukses = "";
 $pesan_error = "";
+
+// =========================================================================
+// PENGATURAN NAMA TAMPILAN BERDASARKAN USER LOGIN
+// =========================================================================
+$username_login = isset($_SESSION['username_admin']) ? strtolower($_SESSION['username_admin']) : (isset($_SESSION['username']) ? strtolower($_SESSION['username']) : '');
+$nama_tampilan = "Admin Pusat";
+
+if (strpos($username_login, 'kaprodi') !== false) {
+    $nama_tampilan = "Pimpinan Program Studi";
+} elseif (strpos($username_login, 'sekre') !== false || strpos($username_login, 'sekretariat') !== false) {
+    $nama_tampilan = "Sekretariat Prodi";
+}
 
 // 2. Fungsi Eksekusi Pesan Sukses (Pola PRG)
 if (isset($_GET['sukses'])) {
@@ -55,6 +72,10 @@ try {
         $kepakaran        = htmlspecialchars(trim($_POST['kepakaran']));
         $urutan_tampil    = (int) $_POST['urutan_tampil'];
 
+        // Input baru: Link Portal Dosen
+        $link_portal      = trim($_POST['link_portal']);
+        $link_portal      = !empty($link_portal) ? filter_var($link_portal, FILTER_SANITIZE_URL) : NULL;
+
         $sambutan_teks    = trim($_POST['sambutan_teks']);
         $sambutan_teks    = !empty($sambutan_teks) ? htmlspecialchars($sambutan_teks) : NULL;
 
@@ -89,17 +110,18 @@ try {
                 throw new Exception("Foto resmi dosen wajib diunggah untuk penambahan data baru di direktori!");
             }
 
-            $sqlInsert = "INSERT INTO tabel_dosen (admin_id, nama_dosen, jabatan_akademik, kepakaran, foto_dosen, sambutan_teks, urutan_tampil)
-                          VALUES (:admin_id, :nama, :jabatan, :kepakaran, :foto, :sambutan, :urutan)";
+            $sqlInsert = "INSERT INTO tabel_dosen (admin_id, nama_dosen, jabatan_akademik, kepakaran, foto_dosen, sambutan_teks, urutan_tampil, link_portal)
+                          VALUES (:admin_id, :nama, :jabatan, :kepakaran, :foto, :sambutan, :urutan, :link_portal)";
             $stmt = $koneksi->prepare($sqlInsert);
             $stmt->execute([
-                ':admin_id'  => $_SESSION['user_id'], // Inject ID Admin
-                ':nama'      => $nama_dosen,
-                ':jabatan'   => $jabatan_akademik,
-                ':kepakaran' => $kepakaran,
-                ':foto'      => $nama_file_baru,
-                ':sambutan'  => $sambutan_teks,
-                ':urutan'    => $urutan_tampil
+                ':admin_id'    => $session_id, // Gunakan variabel sesi terpusat
+                ':nama'        => $nama_dosen,
+                ':jabatan'     => $jabatan_akademik,
+                ':kepakaran'   => $kepakaran,
+                ':foto'        => $nama_file_baru,
+                ':sambutan'    => $sambutan_teks,
+                ':urutan'      => $urutan_tampil,
+                ':link_portal' => $link_portal
             ]);
             header("Location: admin-dosen.php?sukses=tambah");
             exit();
@@ -115,14 +137,14 @@ try {
                     unlink('assets/images/' . $fotoLama['foto_dosen']);
                 }
 
-                $sqlEdit = "UPDATE tabel_dosen SET nama_dosen = :nama, jabatan_akademik = :jabatan, kepakaran = :kepakaran, sambutan_teks = :sambutan, urutan_tampil = :urutan, foto_dosen = :foto WHERE id = :id";
+                $sqlEdit = "UPDATE tabel_dosen SET nama_dosen = :nama, jabatan_akademik = :jabatan, kepakaran = :kepakaran, link_portal = :link_portal, sambutan_teks = :sambutan, urutan_tampil = :urutan, foto_dosen = :foto WHERE id = :id";
                 $stmt = $koneksi->prepare($sqlEdit);
-                $stmt->execute([':nama' => $nama_dosen, ':jabatan' => $jabatan_akademik, ':kepakaran' => $kepakaran, ':sambutan' => $sambutan_teks, ':urutan' => $urutan_tampil, ':foto' => $nama_file_baru, ':id' => $id_edit]);
+                $stmt->execute([':nama' => $nama_dosen, ':jabatan' => $jabatan_akademik, ':kepakaran' => $kepakaran, ':link_portal' => $link_portal, ':sambutan' => $sambutan_teks, ':urutan' => $urutan_tampil, ':foto' => $nama_file_baru, ':id' => $id_edit]);
             } else {
                 // Update tanpa ganti foto
-                $sqlEdit = "UPDATE tabel_dosen SET nama_dosen = :nama, jabatan_akademik = :jabatan, kepakaran = :kepakaran, sambutan_teks = :sambutan, urutan_tampil = :urutan WHERE id = :id";
+                $sqlEdit = "UPDATE tabel_dosen SET nama_dosen = :nama, jabatan_akademik = :jabatan, kepakaran = :kepakaran, link_portal = :link_portal, sambutan_teks = :sambutan, urutan_tampil = :urutan WHERE id = :id";
                 $stmt = $koneksi->prepare($sqlEdit);
-                $stmt->execute([':nama' => $nama_dosen, ':jabatan' => $jabatan_akademik, ':kepakaran' => $kepakaran, ':sambutan' => $sambutan_teks, ':urutan' => $urutan_tampil, ':id' => $id_edit]);
+                $stmt->execute([':nama' => $nama_dosen, ':jabatan' => $jabatan_akademik, ':kepakaran' => $kepakaran, ':link_portal' => $link_portal, ':sambutan' => $sambutan_teks, ':urutan' => $urutan_tampil, ':id' => $id_edit]);
             }
             header("Location: admin-dosen.php?sukses=edit");
             exit();
@@ -164,24 +186,53 @@ try {
             }
         }
     </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+    </style>
 </head>
 
-<body class="bg-gray-50 font-sans antialiased flex h-screen overflow-hidden text-gray-800 selection:bg-udinus-gold selection:text-white">
+<body class="bg-gray-50 font-sans antialiased flex h-screen overflow-hidden text-gray-800 selection:bg-udinus-gold selection:text-white relative">
 
-    <aside id="sidebar-admin" class="hidden absolute inset-y-0 left-0 z-50 md:relative md:flex flex-col w-64 bg-gray-900 text-gray-300 h-full shadow-2xl transition-transform duration-300 border-r border-gray-800">
+    <!-- Overlay Mobile -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-gray-900/50 z-40 hidden md:hidden transition-opacity backdrop-blur-sm"></div>
 
-        <div class="flex items-center justify-center h-20 border-b border-gray-800 gap-3 px-6 bg-gray-950/50">
-            <div class="w-8 h-8 bg-gradient-to-br from-yellow-400 to-udinus-gold rounded flex items-center justify-center p-1 shadow-md shadow-udinus-gold/20">
-                <svg class="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-                </svg>
+    <!-- SIDEBAR -->
+    <aside id="sidebar-admin" class="fixed inset-y-0 left-0 z-50 md:relative w-64 bg-gray-900 text-gray-300 h-full shadow-2xl transition-transform duration-300 transform -translate-x-full md:translate-x-0 border-r border-gray-800 flex flex-col">
+        <div class="flex items-center justify-between h-20 border-b border-gray-800 px-6 bg-gray-950/50">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-gradient-to-br from-yellow-400 to-udinus-gold rounded flex items-center justify-center p-1 shadow-md shadow-udinus-gold/20">
+                    <svg class="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                </div>
+                <span class="font-bold tracking-wider uppercase text-sm text-white">Admin Pusat</span>
             </div>
-            <span class="font-bold tracking-wider uppercase text-sm text-white">Admin Pusat</span>
+            <button id="btn-close-sidebar" class="md:hidden text-gray-400 hover:text-white focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
         </div>
 
         <div class="overflow-y-auto overflow-x-hidden flex-grow py-6 scrollbar-hide">
             <ul class="flex flex-col py-2 space-y-1.5 px-4">
-
                 <li class="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 mt-2">Indikator Mutu</li>
                 <li>
                     <a href="admin-dashboard.php" class="flex flex-row items-center h-11 text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl px-4 transition duration-300">
@@ -201,12 +252,13 @@ try {
                         <span class="ml-3 text-sm font-medium tracking-wide">Kelola Prestasi</span>
                     </a>
                 </li>
+                <!-- KONDISI AKTIF DI HALAMAN DOSEN -->
                 <li>
                     <a href="admin-dosen.php" class="flex flex-row items-center h-11 text-udinus-gold bg-gray-800/80 rounded-xl px-4 transition duration-300 border border-gray-700/50 shadow-inner">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                         </svg>
-                        <span class="ml-3 text-sm font-semibold tracking-wide">Kelola Dosen & Staf</span>
+                        <span class="ml-3 text-sm font-semibold tracking-wide">Kelola Dosen</span>
                     </a>
                 </li>
                 <li>
@@ -221,8 +273,9 @@ try {
             </ul>
         </div>
 
+        <!-- TOMBOL LOGOUT SIDEBAR BAWAH -->
         <div class="p-5 border-t border-gray-800 bg-gray-950/30">
-            <a href="logout.php" class="flex items-center gap-3 text-sm font-semibold text-red-400 hover:text-red-300 transition duration-300 bg-red-400/10 hover:bg-red-400/20 py-2.5 px-4 rounded-xl border border-red-400/20">
+            <a href="logout-admin.php" onclick="return confirm('Apakah Anda yakin ingin mengakhiri sesi admin?');" class="flex items-center gap-3 text-sm font-semibold text-red-400 hover:text-red-300 transition duration-300 bg-red-400/10 hover:bg-red-400/20 py-2.5 px-4 rounded-xl border border-red-400/20">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                 </svg>
@@ -233,6 +286,7 @@ try {
 
     <div class="flex-1 flex flex-col h-full relative overflow-hidden bg-gray-100">
 
+        <!-- HEADER DENGAN BREADCRUMB -->
         <header class="h-20 bg-white shadow-sm flex items-center justify-between px-6 md:px-10 z-30 relative border-b border-gray-200">
             <div class="flex items-center gap-4">
                 <button id="btn-sidebar-admin" class="md:hidden text-gray-500 hover:text-gray-800 focus:outline-none transition">
@@ -240,25 +294,59 @@ try {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                     </svg>
                 </button>
-                <div class="text-xl font-extrabold text-gray-800 tracking-tight">Manajemen Staf Akademik</div>
+
+                <!-- PENYELARASAN BREADCRUMB DISINI -->
+                <div class="flex items-center gap-2 text-sm">
+                    <a href="admin-dashboard.php" class="text-gray-500 hover:text-udinus-navy font-semibold transition hidden sm:inline-block">Dashboard</a>
+                    <svg class="w-4 h-4 text-gray-400 hidden sm:inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                    <span class="text-gray-800 font-extrabold tracking-tight">Manajemen Staf Akademik</span>
+                </div>
             </div>
 
-            <div class="flex items-center gap-4">
-                <div class="text-right hidden sm:block">
-                    <p class="text-sm font-bold text-gray-800 leading-tight uppercase tracking-wider">Sekretariat Prodi</p>
-                    <div class="flex items-center justify-end gap-1.5 mt-0.5">
-                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                        <p class="text-[10px] text-gray-500 font-bold tracking-widest uppercase">Admin Online</p>
+            <!-- PROFIL & DROPDOWN MENU -->
+            <div class="relative">
+                <button id="btn-profil" class="flex items-center gap-4 group focus:outline-none text-left cursor-pointer">
+                    <div class="hidden sm:block">
+                        <p class="text-sm font-bold text-gray-800 leading-tight uppercase tracking-wider"><?php echo htmlspecialchars($nama_tampilan); ?></p>
+                        <div class="flex items-center justify-end gap-1.5 mt-0.5">
+                            <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                            <p class="text-[10px] text-gray-500 font-bold tracking-widest uppercase">Setelan Akun</p>
+                            <svg class="w-3 h-3 text-gray-400 group-hover:text-gray-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
                     </div>
-                </div>
-                <div class="w-11 h-11 rounded-full bg-gradient-to-br from-udinus-navy to-blue-800 text-white flex items-center justify-center font-bold shadow-md ring-2 ring-blue-100">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                    </svg>
+                    <div class="w-11 h-11 rounded-full bg-gradient-to-br from-udinus-navy to-blue-800 text-white flex items-center justify-center font-bold shadow-md ring-2 ring-blue-100 transition transform group-hover:scale-105">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                </button>
+
+                <!-- DROPDOWN BOX -->
+                <div id="dropdown-profil" class="absolute right-0 mt-3 w-52 bg-white rounded-xl shadow-xl border border-gray-100 hidden z-50 transform opacity-0 transition-all duration-200 origin-top-right scale-95">
+                    <div class="p-2">
+                        <a href="admin-ganti-password.php" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-blue-50 hover:text-udinus-navy rounded-lg transition">
+                            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                            </svg>
+                            Ubah Password
+                        </a>
+                        <div class="border-t border-gray-100 my-1"></div>
+                        <a href="logout-admin.php" onclick="return confirm('Apakah Anda yakin ingin mengakhiri sesi admin?');" class="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-lg transition">
+                            <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                            </svg>
+                            Akhiri Sesi
+                        </a>
+                    </div>
                 </div>
             </div>
         </header>
 
+        <!-- MAIN CONTENT -->
         <main class="flex-1 overflow-x-hidden overflow-y-auto p-6 md:p-10">
 
             <?php if (!empty($pesan_error)): ?>
@@ -266,7 +354,7 @@ try {
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
-                    <?php echo $pesan_error; ?>
+                    <?php echo htmlspecialchars($pesan_error); ?>
                 </div>
             <?php endif; ?>
 
@@ -275,7 +363,7 @@ try {
                     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
-                    <?php echo $pesan_sukses; ?>
+                    <?php echo htmlspecialchars($pesan_sukses); ?>
                 </div>
             <?php endif; ?>
 
@@ -289,8 +377,9 @@ try {
                 </button>
             </div>
 
+            <!-- TABEL DATA DOSEN -->
             <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto custom-scrollbar">
                     <table class="w-full text-sm text-left text-gray-600">
                         <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-200 tracking-wider font-bold">
                             <tr>
@@ -312,13 +401,21 @@ try {
                                 <?php foreach ($daftarDosen as $dosen): ?>
                                     <tr class="hover:bg-blue-50/30 transition">
                                         <td class="px-6 py-4">
-                                            <div class="w-14 h-14 rounded-full overflow-hidden shadow-sm border-2 border-white ring-1 ring-gray-200 bg-gray-200">
+                                            <div class="w-14 h-14 rounded-full overflow-hidden shadow-sm border-2 border-white ring-1 ring-gray-200 bg-gray-200 relative group">
                                                 <?php
-                                                // Handle case if image not found or empty
                                                 $fotoDsn = !empty($dosen['foto_dosen']) ? $dosen['foto_dosen'] : 'default-avatar.png';
                                                 $srcDsn = (strpos($fotoDsn, 'http') === 0) ? $fotoDsn : 'assets/images/' . $fotoDsn;
                                                 ?>
                                                 <img src="<?php echo htmlspecialchars($srcDsn); ?>" alt="Foto" class="w-full h-full object-cover object-top">
+
+                                                <!-- Indikator Link Portal -->
+                                                <?php if (!empty($dosen['link_portal'])): ?>
+                                                    <a href="<?php echo htmlspecialchars($dosen['link_portal']); ?>" target="_blank" title="Lihat Portal UDINUS" class="absolute inset-0 bg-blue-900/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                                        </svg>
+                                                    </a>
+                                                <?php endif; ?>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4">
@@ -362,6 +459,7 @@ try {
         </main>
     </div>
 
+    <!-- MODAL FORM -->
     <div id="modal-form" class="fixed inset-0 z-50 hidden items-center justify-center bg-gray-900/60 backdrop-blur-sm transition-opacity px-4">
         <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl mx-auto overflow-hidden transform scale-100 flex flex-col max-h-[90vh] border border-gray-100">
 
@@ -374,7 +472,7 @@ try {
                 </button>
             </div>
 
-            <form action="admin-dosen.php" method="POST" enctype="multipart/form-data" class="p-8 overflow-y-auto flex-grow space-y-6">
+            <form action="admin-dosen.php" method="POST" enctype="multipart/form-data" class="p-8 overflow-y-auto custom-scrollbar flex-grow space-y-6">
 
                 <input type="hidden" name="aksi" id="input-aksi" value="tambah">
                 <input type="hidden" name="id_dosen" id="input-id" value="">
@@ -396,7 +494,7 @@ try {
                         <input type="text" name="kepakaran" id="input-kepakaran" required placeholder="Cth: Data Science & Machine Learning" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition">
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Hirarki Tampilan (Website Publik)</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Hirarki Tampilan (Web Publik)</label>
                         <select name="urutan_tampil" id="input-urutan" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-udinus-navy bg-white shadow-sm font-semibold">
                             <option value="2">2 - Dosen Reguler (Grid Bawah)</option>
                             <option value="1">1 - Pimpinan / Kaprodi (Paling Atas)</option>
@@ -404,15 +502,21 @@ try {
                     </div>
                 </div>
 
+                <!-- KOLOM BARU UNTUK LINK PORTAL -->
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">Teks Sambutan Pimpinan <span class="text-xs font-normal text-udinus-gold ml-1 italic">(Opsional, Khusus Kaprodi)</span></label>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">URL Profil Portal UDINUS <span class="text-xs font-normal text-gray-400 ml-1 italic">(Opsional)</span></label>
+                    <input type="url" name="link_portal" id="input-link" placeholder="Cth: https://dosen.dinus.ac.id/profil/..." class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-blue-600 bg-gray-50 focus:bg-white transition placeholder:text-gray-400">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Teks Sambutan Pimpinan <span class="text-xs font-normal text-udinus-gold ml-1 italic">(Khusus Kaprodi)</span></label>
                     <textarea name="sambutan_teks" id="input-sambutan" rows="3" placeholder="Tuliskan pesan sambutan resmi untuk ditampilkan di header halaman profil..." class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-udinus-navy resize-none bg-gray-50 focus:bg-white transition"></textarea>
                 </div>
 
                 <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-5 shadow-sm">
                     <label class="block text-sm font-bold text-udinus-navy mb-3">Unggah Foto Resmi Staf</label>
                     <input type="file" name="foto_dosen" id="input-gambar" accept=".jpg, .jpeg, .png, .webp" class="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-white file:text-udinus-navy file:shadow-sm hover:file:bg-gray-50 cursor-pointer">
-                    <p id="helper-gambar" class="text-[11px] text-gray-500 mt-3 font-semibold">*Wajib melampirkan foto profesional rasio 1:1 atau 3:4 (Maks. 3MB, Format JPG/PNG).</p>
+                    <p id="helper-gambar" class="text-[11px] text-gray-500 mt-3 font-semibold">*Wajib melampirkan foto profesional (Maks. 3MB, Format JPG/PNG).</p>
                 </div>
 
                 <div class="pt-6 flex justify-end gap-3 border-t border-gray-100">
@@ -428,17 +532,64 @@ try {
         </div>
     </div>
 
+    <!-- JAVASCRIPT -->
     <script>
-        // Logika Sidebar Mobile
+        // ==========================================
+        // LOGIKA SIDEBAR & DROPDOWN UI (SINKRON DENGAN DASHBOARD)
+        // ==========================================
         const btnSidebarAdmin = document.getElementById('btn-sidebar-admin');
+        const btnCloseSidebar = document.getElementById('btn-close-sidebar');
         const sidebarAdmin = document.getElementById('sidebar-admin');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+        function toggleSidebar() {
+            sidebarAdmin.classList.toggle('-translate-x-full');
+            sidebarOverlay.classList.toggle('hidden');
+        }
+
         if (btnSidebarAdmin && sidebarAdmin) {
-            btnSidebarAdmin.addEventListener('click', () => {
-                sidebarAdmin.classList.toggle('hidden');
-                sidebarAdmin.classList.toggle('flex');
+            btnSidebarAdmin.addEventListener('click', toggleSidebar);
+            btnCloseSidebar.addEventListener('click', toggleSidebar);
+            sidebarOverlay.addEventListener('click', toggleSidebar);
+        }
+
+        const btnProfil = document.getElementById('btn-profil');
+        const dropdownProfil = document.getElementById('dropdown-profil');
+
+        if (btnProfil && dropdownProfil) {
+            btnProfil.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (dropdownProfil.classList.contains('hidden')) {
+                    dropdownProfil.classList.remove('hidden');
+                    setTimeout(() => {
+                        dropdownProfil.classList.remove('opacity-0', 'scale-95');
+                        dropdownProfil.classList.add('opacity-100', 'scale-100');
+                    }, 10);
+                } else {
+                    tutupDropdown();
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!btnProfil.contains(e.target) && !dropdownProfil.contains(e.target)) {
+                    tutupDropdown();
+                }
             });
         }
 
+        function tutupDropdown() {
+            if (!dropdownProfil.classList.contains('hidden')) {
+                dropdownProfil.classList.remove('opacity-100', 'scale-100');
+                dropdownProfil.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => {
+                    dropdownProfil.classList.add('hidden');
+                }, 200);
+            }
+        }
+
+        // ==========================================
+        // LOGIKA MODAL FORM CRUD
+        // ==========================================
         const modalForm = document.getElementById('modal-form');
 
         function bukaModal() {
@@ -450,6 +601,9 @@ try {
             document.getElementById('input-kepakaran').value = "";
             document.getElementById('input-sambutan').value = "";
             document.getElementById('input-urutan').value = "2";
+
+            // Mengosongkan form link portal
+            document.getElementById('input-link').value = "";
 
             document.getElementById('input-gambar').required = true;
             document.getElementById('helper-gambar').innerText = "*Wajib melampirkan foto profesional (Maks. 3MB, Format JPG/PNG).";
@@ -473,6 +627,9 @@ try {
             document.getElementById('input-kepakaran').value = dataLengkap.kepakaran;
             document.getElementById('input-urutan').value = dataLengkap.urutan_tampil;
             document.getElementById('input-sambutan').value = dataLengkap.sambutan_teks ? dataLengkap.sambutan_teks : "";
+
+            // Mengisi form link portal jika ada
+            document.getElementById('input-link').value = dataLengkap.link_portal ? dataLengkap.link_portal : "";
 
             document.getElementById('input-gambar').required = false;
             document.getElementById('helper-gambar').innerHTML = "<span class='text-udinus-gold'>*Opsional:</span> Kosongkan kolom ini jika Anda tidak ingin merubah foto dosen sebelumnya.";

@@ -1,8 +1,8 @@
 <?php
 session_start();
 
-// Jika admin sudah login, langsung arahkan ke dashboard
-if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
+// Jika admin sudah login, langsung arahkan ke dashboard admin
+if (isset($_SESSION['role_admin']) && $_SESSION['role_admin'] === 'admin') {
     header("Location: admin-dashboard.php");
     exit();
 }
@@ -21,10 +21,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $admin = $queryAdmin->fetch();
 
         if ($admin && password_verify($password, $admin['password'])) {
-            // Set Sesi Spesifik Admin
-            $_SESSION['user_id']  = $admin['id'];
-            $_SESSION['username'] = $admin['username'];
-            $_SESSION['role']     = $admin['role'];
+            // Set Sesi Spesifik Admin (Tambahkan _admin)
+            $_SESSION['user_id_admin']  = $admin['id'];
+            $_SESSION['username_admin'] = $admin['username'];
+            $_SESSION['role_admin']     = $admin['role'];
 
             header("Location: admin-dashboard.php");
             exit();

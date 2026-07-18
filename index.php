@@ -118,13 +118,17 @@ try {
         <div class="container mx-auto px-6 flex flex-col-reverse md:flex-row items-center gap-12 lg:gap-20 relative z-10">
 
             <div class="w-full md:w-1/2 flex flex-col items-start text-left">
-                <div class="inline-flex items-center gap-2 py-1.5 px-4 rounded-full bg-blue-50 border border-blue-100 text-udinus-navy font-bold text-xs tracking-wider uppercase mb-6 shadow-sm">
+                <!-- Tautan PDF Sertifikat Akreditasi -->
+                <a href="assets/sertifikat-akreditasi.pdf" target="_blank" class="inline-flex items-center gap-2 py-1.5 px-4 rounded-full bg-blue-50 border border-blue-100 hover:bg-blue-100 hover:border-blue-200 text-udinus-navy font-bold text-xs tracking-wider uppercase mb-6 shadow-sm transition duration-300 group cursor-pointer">
                     <span class="flex h-2 w-2 relative">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-udinus-gold opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-2 w-2 bg-udinus-gold"></span>
                     </span>
                     Akreditasi <?php echo htmlspecialchars($konfig['sk_akreditasi']); ?>
-                </div>
+                    <svg class="w-3.5 h-3.5 text-udinus-navy/70 group-hover:text-udinus-navy transition-colors ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                    </svg>
+                </a>
 
                 <h1 class="text-4xl md:text-5xl lg:text-[4rem] font-extrabold text-udinus-navy leading-[1.1] mb-6 tracking-tight">
                     Membentuk <br class="hidden md:block" />
@@ -158,17 +162,21 @@ try {
                     <div class="absolute inset-0 bg-gradient-to-t from-udinus-navy/50 via-transparent to-transparent opacity-60"></div>
                 </div>
 
-                <div class="absolute bottom-10 -left-6 md:-left-10 bg-white p-4 rounded-2xl shadow-xl border border-gray-100 z-20 flex items-center gap-4 animate-float" style="animation-delay: 1s;">
-                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                <!-- Tautan Floating ke Halaman Alumni -->
+                <a href="alumni.php" class="absolute bottom-10 -left-6 md:-left-10 bg-white p-4 rounded-2xl shadow-xl border border-gray-100 z-20 flex items-center gap-4 animate-float group cursor-pointer hover:scale-105 hover:shadow-2xl transition-all duration-300" style="animation-delay: 1s;">
+                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600 group-hover:bg-green-500 group-hover:text-white transition-colors duration-300">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-500 font-bold uppercase tracking-wider">Lulusan Terbukti</p>
-                        <p class="text-lg font-extrabold text-gray-800">Siap Industri</p>
+                        <p class="text-xs text-gray-500 font-bold uppercase tracking-wider group-hover:text-gray-700 transition-colors">Lulusan Terbukti</p>
+                        <p class="text-lg font-extrabold text-gray-800 group-hover:text-udinus-navy transition-colors flex items-center gap-1">
+                            Siap Industri
+                            <span class="text-udinus-navy opacity-0 group-hover:opacity-100 transition-opacity transform -translate-x-2 group-hover:translate-x-0 duration-300">&rarr;</span>
+                        </p>
                     </div>
-                </div>
+                </a>
             </div>
 
         </div>
