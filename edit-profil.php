@@ -45,14 +45,18 @@ try {
         $angkatan            = htmlspecialchars(trim($_POST['angkatan']));
         $usia                = (int)$_POST['usia'];
         $jalur_masuk         = htmlspecialchars(trim($_POST['jalur_masuk']));
+
         $jabatan_sekarang    = htmlspecialchars(trim($_POST['jabatan_sekarang']));
         $perusahaan_sekarang = htmlspecialchars(trim($_POST['perusahaan_sekarang']));
+        $mulai_sekarang      = htmlspecialchars(trim($_POST['mulai_sekarang'] ?? ''));
+        $deskripsi_sekarang  = htmlspecialchars(trim($_POST['deskripsi_sekarang'] ?? ''));
+
         $domisili            = htmlspecialchars(trim($_POST['domisili']));
         $linkedin_url        = htmlspecialchars(trim($_POST['linkedin_url']));
         $ringkasan           = htmlspecialchars(trim($_POST['ringkasan_profesional']));
         $keahlian            = htmlspecialchars(trim($_POST['keahlian_input']));
 
-        // Memproses Data Array Dinamis (Riwayat Karir) - Disempurnakan
+        // Memproses Data Array Dinamis (Riwayat Karir Tambahan / Lama)
         $karir_arr = [];
         if (isset($_POST['karir_posisi']) && is_array($_POST['karir_posisi'])) {
             for ($i = 0; $i < count($_POST['karir_posisi']); $i++) {
@@ -67,9 +71,45 @@ try {
                 }
             }
         }
+
+        // =========================================================================
+        // FITUR AUTO-ARCHIVE CANGGIH: PEKERJAAN SAAT INI -> JEJAK KARIR
+        // =========================================================================
+        // Kita membaca data LAMA murni dari DB ($profil), bukan dari form.
+        $jabatan_lama = trim($profil['jabatan_sekarang'] ?? '');
+        $perusahaan_lama = trim($profil['perusahaan_sekarang'] ?? '');
+        $mulai_lama = trim($profil['mulai_sekarang'] ?? '');
+        $deskripsi_lama = trim($profil['deskripsi_sekarang'] ?? '');
+
+        // Cek apakah sebelumnya dia punya kerjaan, dan apakah nama PT/Jabatannya diubah hari ini?
+        if (!empty($jabatan_lama) && !empty($perusahaan_lama)) {
+            if (strtolower($jabatan_lama) !== strtolower($jabatan_sekarang) || strtolower($perusahaan_lama) !== strtolower($perusahaan_sekarang)) {
+
+                // Pastikan tidak dobel
+                $is_duplicate = false;
+                foreach ($karir_arr as $k) {
+                    if (strtolower($k['posisi']) === strtolower($jabatan_lama) && strtolower($k['perusahaan']) === strtolower($perusahaan_lama)) {
+                        $is_duplicate = true;
+                        break;
+                    }
+                }
+
+                if (!$is_duplicate) {
+                    array_unshift($karir_arr, [
+                        'posisi' => htmlspecialchars($jabatan_lama),
+                        'perusahaan' => htmlspecialchars($perusahaan_lama),
+                        'mulai' => htmlspecialchars($mulai_lama), // Mengambil bulan masuk yg dulu
+                        'selesai' => date('Y-m'), // MENGISI TANGGAL KELUAR OTOMATIS BERDASARKAN HARI INI
+                        'deskripsi' => htmlspecialchars($deskripsi_lama) // Mengambil deskripsi yg dulu
+                    ]);
+                }
+            }
+        }
+        // =========================================================================
+
         $json_karir = json_encode($karir_arr, JSON_UNESCAPED_UNICODE);
 
-        // Memproses Data Array Dinamis (Sertifikat) - Disempurnakan
+        // Memproses Data Array Dinamis (Sertifikat)
         $sertifikat_arr = [];
         if (isset($_POST['sertif_nama']) && is_array($_POST['sertif_nama'])) {
             for ($i = 0; $i < count($_POST['sertif_nama']); $i++) {
@@ -85,7 +125,6 @@ try {
         }
         $json_sertifikat = json_encode($sertifikat_arr, JSON_UNESCAPED_UNICODE);
 
-        // Fungsi Bantu Upload
         function prosesUpload($file_input, $prefix, $foto_lama)
         {
             if (isset($_FILES[$file_input]) && $_FILES[$file_input]['error'] !== 4) {
@@ -122,11 +161,11 @@ try {
         $foto_profil_baru = prosesUpload('foto_profil', 'avatar_', $profil['foto_profil']);
         $foto_sampul_baru = prosesUpload('foto_sampul', 'cover_', $profil['foto_sampul']);
 
-        // Query UPDATE terstruktur ke database
         $sqlUpdate = "UPDATE tabel_alumni_profil SET
                       nama_lengkap = :nama, tahun_masuk = :thn_masuk, tahun_lulus = :thn_lulus,
                       angkatan = :angkatan, usia = :usia, jalur_masuk = :jalur,
                       jabatan_sekarang = :jabatan, perusahaan_sekarang = :perusahaan,
+                      mulai_sekarang = :mulai_sekarang, deskripsi_sekarang = :deskripsi_sekarang,
                       domisili = :domisili, linkedin_url = :linkedin, ringkasan_profesional = :ringkasan,
                       foto_profil = :foto_profil, foto_sampul = :foto_sampul,
                       riwayat_karir = :riwayat_karir, sertifikat = :sertifikat, keahlian = :keahlian
@@ -142,6 +181,8 @@ try {
             ':jalur' => $jalur_masuk,
             ':jabatan' => $jabatan_sekarang,
             ':perusahaan' => $perusahaan_sekarang,
+            ':mulai_sekarang' => $mulai_sekarang,
+            ':deskripsi_sekarang' => $deskripsi_sekarang,
             ':domisili' => $domisili,
             ':linkedin' => $linkedin_url,
             ':ringkasan' => $ringkasan,
@@ -155,7 +196,6 @@ try {
 
         $update_berhasil = true;
 
-        // Refresh data lokal
         $queryProfil->execute([':user_id' => $_SESSION['user_id_alumni']]);
         $profil = $queryProfil->fetch();
         $riwayatKarir = json_decode($profil['riwayat_karir'] ?? '[]', true) ?: [];
@@ -166,7 +206,7 @@ try {
     $pesan_error = $e->getMessage();
 } catch (PDOException $e) {
     if (strpos($e->getMessage(), 'Unknown column') !== false) {
-        $pesan_error = "Sistem gagal menyimpan. Admin perlu menjalankan ALTER TABLE untuk menambahkan kolom 'riwayat_karir', 'sertifikat', dan 'keahlian'.";
+        $pesan_error = "Sistem gagal menyimpan. Admin perlu menambahkan kolom 'mulai_sekarang' dan 'deskripsi_sekarang' di database.";
     } else {
         $pesan_error = "Terjadi kesalahan database: " . $e->getMessage();
     }
@@ -177,7 +217,7 @@ function getUrlFoto($foto, $jenis)
     if (empty($foto) || strpos($foto, 'default-') === 0) {
         return $jenis == 'avatar' ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80' : 'https://images.unsplash.com/photo-1497366216548-37526070297c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80';
     }
-    if (!str_starts_with($foto, 'http')) return 'assets/images/' . $foto;
+    if (strpos($foto, 'http') !== 0) return 'assets/images/' . $foto;
     return $foto;
 }
 $fotoProfilAktif = getUrlFoto($profil['foto_profil'], 'avatar');
@@ -395,9 +435,27 @@ $fotoSampulAktif = getUrlFoto($profil['foto_sampul'], 'cover');
                             </svg></span>
                         Pekerjaan Saat Ini & Kontak
                     </h2>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div><label class="block text-sm font-semibold text-gray-700 mb-2">Jabatan Saat Ini</label><input type="text" name="jabatan_sekarang" value="<?php echo htmlspecialchars($profil['jabatan_sekarang'] ?? ''); ?>" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition"></div>
-                        <div><label class="block text-sm font-semibold text-gray-700 mb-2">Perusahaan Saat Ini</label><input type="text" name="perusahaan_sekarang" value="<?php echo htmlspecialchars($profil['perusahaan_sekarang'] ?? ''); ?>" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition"></div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Jabatan Saat Ini</label>
+                            <input type="text" name="jabatan_sekarang" value="<?php echo htmlspecialchars($profil['jabatan_sekarang'] ?? ''); ?>" placeholder="Cth: Fullstack Developer" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Perusahaan Saat Ini</label>
+                            <input type="text" name="perusahaan_sekarang" value="<?php echo htmlspecialchars($profil['perusahaan_sekarang'] ?? ''); ?>" placeholder="Cth: PT Teknologi Nusantara" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition">
+                        </div>
+
+                        <!-- FIELD BARU UNTUK TANGGAL MASUK DAN DESKRIPSI -->
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Bulan/Tahun Mulai Pekerjaan Saat Ini <span class="text-xs text-gray-400 font-normal">(opsional)</span></label>
+                            <input type="month" name="mulai_sekarang" value="<?php echo htmlspecialchars($profil['mulai_sekarang'] ?? ''); ?>" class="w-full px-4 py-3 mb-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition max-w-sm">
+
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Deskripsi Singkat Pekerjaan Saat Ini <span class="text-xs text-gray-400 font-normal">(opsional)</span></label>
+                            <textarea name="deskripsi_sekarang" rows="3" placeholder="Jelaskan peran utama Anda di pekerjaan saat ini..." class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition resize-none"><?php echo htmlspecialchars($profil['deskripsi_sekarang'] ?? ''); ?></textarea>
+                            <p class="text-[11px] text-udinus-gold mt-1.5 font-medium">*Jika Anda mengganti Perusahaan/Jabatan di masa depan, detail pekerjaan ini otomatis dialihkan ke "Rekam Jejak Karir" dan ditutup dengan tanggal kelulusan di hari tersebut.</p>
+                        </div>
+
                         <div><label class="block text-sm font-semibold text-gray-700 mb-2">Domisili Kota</label><input type="text" name="domisili" value="<?php echo htmlspecialchars($profil['domisili'] ?? ''); ?>" required class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition"></div>
                         <div><label class="block text-sm font-semibold text-gray-700 mb-2">LinkedIn URL</label><input type="url" name="linkedin_url" placeholder="https://linkedin.com/in/username" value="<?php echo htmlspecialchars($profil['linkedin_url'] ?? ''); ?>" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-udinus-navy bg-gray-50 focus:bg-white transition"></div>
                     </div>
@@ -412,8 +470,8 @@ $fotoSampulAktif = getUrlFoto($profil['foto_sampul'], 'cover');
                 <!-- 4. REKAM JEJAK KARIR / MAGANG (DINAMIS) -->
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 lg:p-8 relative z-10">
                     <div class="flex justify-between items-center border-b border-gray-100 pb-3 mb-6">
-                        <h2 class="text-lg font-bold text-udinus-navy">Rekam Jejak Karir / Magang</h2>
-                        <button type="button" onclick="addKarir()" class="text-sm font-bold text-udinus-navy bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition">+ Tambah Karir</button>
+                        <h2 class="text-lg font-bold text-udinus-navy">Rekam Jejak Karir / Magang Sebelumnya</h2>
+                        <button type="button" onclick="addKarir()" class="text-sm font-bold text-udinus-navy bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition">+ Tambah Karir Lama</button>
                     </div>
 
                     <div id="karir-container" class="space-y-6">
@@ -511,12 +569,10 @@ $fotoSampulAktif = getUrlFoto($profil['foto_sampul'], 'cover');
 
     <!-- SCRIPT LOGIC -->
     <script>
-        // Data dari PHP
         const prefillKarir = <?php echo json_encode($riwayatKarir); ?>;
         const prefillSertifikat = <?php echo json_encode($dataSertifikat); ?>;
         const prefillKeahlian = "<?php echo addslashes($dataKeahlian); ?>";
 
-        // DOM Elements
         const karirContainer = document.getElementById('karir-container');
         const sertifikatContainer = document.getElementById('sertifikat-container');
 
@@ -538,7 +594,7 @@ $fotoSampulAktif = getUrlFoto($profil['foto_sampul'], 'cover');
                         <div><label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Posisi / Gelar</label><input type="text" name="karir_posisi[]" value="${pos}" placeholder="Cth: Data Analyst" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-1 focus:ring-udinus-navy bg-white" required></div>
                         <div><label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Nama Perusahaan/Instansi</label><input type="text" name="karir_perusahaan[]" value="${per}" placeholder="Cth: PT Tokopedia" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-1 focus:ring-udinus-navy bg-white" required></div>
                         <div><label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Tahun Mulai</label><input type="month" name="karir_mulai[]" value="${mul}" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-1 focus:ring-udinus-navy bg-white" required></div>
-                        <div><label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Tahun Selesai (Kosongi jika masih)</label><input type="month" name="karir_selesai[]" value="${sel}" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-1 focus:ring-udinus-navy bg-white"></div>
+                        <div><label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Tahun Selesai (Wajib untuk riwayat lama)</label><input type="month" name="karir_selesai[]" value="${sel}" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-1 focus:ring-udinus-navy bg-white" required></div>
                     </div>
                     <div><label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Deskripsi Singkat</label><textarea name="karir_deskripsi[]" rows="2" placeholder="Apa yang Anda kerjakan / capai?" class="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:ring-1 focus:ring-udinus-navy bg-white resize-none">${des}</textarea></div>
                 </div>
@@ -546,7 +602,7 @@ $fotoSampulAktif = getUrlFoto($profil['foto_sampul'], 'cover');
             karirContainer.insertAdjacentHTML('beforeend', html);
         }
 
-        // Fungsi Tambah Sertifikat (Disempurnakan dengan URL)
+        // Fungsi Tambah Sertifikat
         function addSertifikat(data = null) {
             const nam = data ? data.nama : '';
             const pen = data ? data.penerbit : '';
@@ -573,7 +629,7 @@ $fotoSampulAktif = getUrlFoto($profil['foto_sampul'], 'cover');
             sertifikatContainer.insertAdjacentHTML('beforeend', html);
         }
 
-        // Tags Logic (Keahlian) - Disempurnakan
+        // Tags Logic
         const tagInput = document.getElementById('tag-input');
         const tagsContainer = document.getElementById('tags-container');
         const hiddenKeahlian = document.getElementById('keahlian_hidden');
@@ -599,24 +655,19 @@ $fotoSampulAktif = getUrlFoto($profil['foto_sampul'], 'cover');
             if (e.key === 'Enter' || e.key === ',') {
                 e.preventDefault();
                 const value = tagInput.value.trim().replace(/,/g, '');
-                // Cegah duplikasi dengan case-insensitive check
                 if (value && !tags.some(t => t.toLowerCase() === value.toLowerCase())) {
                     tags.push(value);
                     tagInput.value = '';
                     renderTags();
                 } else if (tags.some(t => t.toLowerCase() === value.toLowerCase())) {
-                    tagInput.value = ''; // Reset input kalau sudah ada yang sama
+                    tagInput.value = '';
                 }
             }
         });
 
         // Initialize Prefills
         if (prefillKarir.length > 0) prefillKarir.forEach(k => addKarir(k));
-        else addKarir();
-
         if (prefillSertifikat.length > 0) prefillSertifikat.forEach(s => addSertifikat(s));
-        else addSertifikat(); // Form sertifikat kosong default agar UX lebih baik
-
         renderTags();
 
         // Image Preview Logic
@@ -666,7 +717,7 @@ $fotoSampulAktif = getUrlFoto($profil['foto_sampul'], 'cover');
             modalAkun.classList.remove('flex');
         }
 
-        // Mobile Sidebar Logic (dengan Overlay background)
+        // Mobile Sidebar Logic
         const btnSidebarMobile = document.getElementById('btn-sidebar-mobile');
         const sidebarDashboard = document.getElementById('sidebar-dashboard');
         const sidebarOverlay = document.getElementById('sidebar-overlay');
