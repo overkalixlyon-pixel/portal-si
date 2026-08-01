@@ -5,9 +5,9 @@
 
 // 1. Deklarasi Parameter Kredensial Database
 $host     = "localhost";      // Server lokal XAMPP
-$db_name  = "db_portal_si";   // Nama database yang kita buat di phpMyAdmin
-$username = "root";           // Username default XAMPP
-$password = "";               // Password default XAMPP adalah kosong/tanpa teks
+$db_name  = "sistem89_db_portal_si";   // Nama database yang kita buat di phpMyAdmin
+$username = "sistem89_admin";           // Username default XAMPP
+$password = "Yzj;2vcd4K3p1.ih";               // Password default XAMPP adalah kosong/tanpa teks
 
 try {
     // 2. Membuat Instansiasi Koneksi Baru Menggunakan PDO
